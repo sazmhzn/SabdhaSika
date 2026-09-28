@@ -135,7 +135,37 @@ export function buildDailySession(state: AppState, now: Date = new Date()): Sess
     ...recentDue.slice(0, recentTake + recentExtra),
     ...olderDue.slice(0, olderTake),
   ];
-  const newWords = unseen.slice(0, Math.min(newCount + Math.max(0, shortfall - recentExtra), unseen.length));
+  // --- new-word selection -------------------------------------------------
+  // Sort unseen by frequency so the curated low-rank greetings and everyday
+  // words sit alongside the particles at the front of the course, and so the
+  // window below is frequency-ordered before being shuffled for variety.
+  const unseenSorted = [...unseen].sort((a, b) => a.frequencyRank - b.frequencyRank);
+
+  // A learner should never be handed the *same* opening every day, and never
+  // only grammar particles. We take the earliest WINDOW unseen words (a mix of
+  // particles + the curated greetings/content words), lock the CORE most
+  // frequent so the essentials always appear, then seeded-shuffle the rest so
+  // each day surfaces a different fresh mix. The seed is the calendar day, so
+  // "today's 25 words" stays stable within a day but varies day to day.
+  const WINDOW = 34;
+  const CORE = 6;
+  const pool = unseenSorted.slice(0, WINDOW);
+  const coreWords = pool.slice(0, Math.min(CORE, pool.length));
+  const poolRest = pool.slice(CORE);
+  const dayRand = seededRandom(hashString(`${targetLanguage}:${dayKey(now)}:new`));
+  const shuffledRest = [...poolRest];
+  for (let i = shuffledRest.length - 1; i > 0; i--) {
+    const j = Math.floor(dayRand() * (i + 1));
+    const tmp = shuffledRest[i];
+    shuffledRest[i] = shuffledRest[j];
+    shuffledRest[j] = tmp;
+  }
+  const orderedUnseen = [...coreWords, ...shuffledRest];
+
+  const newWords = orderedUnseen.slice(
+    0,
+    Math.min(newCount + Math.max(0, shortfall - recentExtra), orderedUnseen.length),
+  );
 
   // --- interleave so the session opens with something new and easy -------
   const ordered: VocabularyWord[] = [];
