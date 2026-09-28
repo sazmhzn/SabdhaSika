@@ -1,0 +1,40 @@
+
+> sabdhasika@1.0.0 build
+> next build
+
+   ▲ Next.js 15.5.26
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 13.2s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/14) ...
+   Generating static pages (3/14) 
+   Generating static pages (6/14) 
+   Generating static pages (10/14) 
+ ✓ Generating static pages (14/14)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                    7.62 kB         126 kB
+├ ○ /_not-found                            127 B         103 kB
+├ ○ /learn                               3.76 kB         226 kB
+├ ○ /offline                               675 B         115 kB
+├ ○ /onboarding                          9.61 kB         217 kB
+├ ○ /progress                            4.03 kB         226 kB
+├ ○ /recall                              4.73 kB         232 kB
+├ ƒ /register                              137 B         123 kB
+├ ○ /review                               4.8 kB         224 kB
+├ ○ /session                             12.9 kB         229 kB
+├ ○ /settings                            6.71 kB         231 kB
+└ ƒ /signin                                137 B         123 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/1255-0f12d1d68e0b5948.js      46.4 kB
+  ├ chunks/4bd1b696-f785427dddbba9fb.js  54.2 kB
+  └ other shared chunks (total)          2.19 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
