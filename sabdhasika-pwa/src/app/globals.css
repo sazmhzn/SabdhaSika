@@ -1,0 +1,807 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Theme variant: class/attribute based so the user controls it,
+ * not the OS alone. `data-theme` lives on <html>.
+ * ------------------------------------------------------------------ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ==================================================================== *
+ * SPACING & RADIUS SCALE — the whole app is built from these steps.
+ *
+ * There is exactly one grid and there are no half steps. If a value is
+ * not on this list it does not belong in a className.
+ *
+ * SPACING (4px base):
+ *    4   8   12   16   20   24   28   32
+ *    └ label ↔ value          └ card padding (phone)
+ *        └ icon ↔ label            └ card padding (desktop)
+ *            └ row vertical          └ section ↔ section
+ *
+ * Vertical rhythm, by role:
+ *   inside a card ............ 20 phone / 28 desktop  (pad-card, pad-card-lg)
+ *   between panels ........... 12                     (mt-3)
+ *   between sections ......... 24                     (mt-6)
+ *   list row ................. 16 x 16                (pad-row)
+ *   page gutter .............. 20 phone / 40 desktop  (AppShell)
+ *
+ * RADIUS — four steps, each with one job, plus pills:
+ *   card  26px  primary surfaces: today's card, the flashcard, the summary
+ *   panel 20px  secondary surfaces: settings groups, stat panels, sheets
+ *   row   16px  list rows, inputs, buttons, option tiles
+ *   chip  12px  small chips, glyph previews, keyboard keys
+ *   full        pills, avatars, progress bars, dots
+ *
+ * Using `rounded-panel` where the old code said `rounded-row` is the
+ * single biggest visual consistency win: primary and secondary surfaces
+ * used to share one radius, so nothing read as more important.
+ * ==================================================================== */
+
+/* ------------------------------------------------------------------ *
+ * Raw tokens. Warm neutrals only — no pure #000 / #fff, per the
+ * reference language (near-white paper, soft graphite ink).
+ * ------------------------------------------------------------------ */
+:root {
+  color-scheme: light;
+
+  --paper: #fbfbf9;
+  --paper-raised: rgba(255, 255, 255, 0.78);
+  --surface: #f1f1ee;
+  --surface-2: #e7e7e3;
+  --tile-top: #ececea;
+  --tile-bottom: #d8d8d4;
+
+  --ink: #0b0b0c;
+  --ink-soft: #3b3b41;
+  --muted: #83838a;
+  --faint: #b3b3b9;
+
+  --line: rgba(11, 11, 12, 0.09);
+  --line-strong: rgba(11, 11, 12, 0.16);
+
+  /* Single brand accent: ember. Used only for streaks, milestones,
+     celebration and the "Hard" rating — never for decoration. */
+  --accent: #dc5a2c;
+  --accent-soft: rgba(220, 90, 44, 0.12);
+  --good: #2b8a5f;
+  --good-soft: rgba(43, 138, 95, 0.12);
+  --bad: #c04a45;
+  --bad-soft: rgba(192, 74, 69, 0.12);
+
+  --shadow-card: 0 1px 2px rgba(11, 11, 12, 0.04), 0 12px 32px -12px rgba(11, 11, 12, 0.14);
+  --shadow-lift: 0 2px 6px rgba(11, 11, 12, 0.06), 0 28px 56px -20px rgba(11, 11, 12, 0.22);
+  --shadow-nav: 0 1px 1px rgba(11, 11, 12, 0.04), 0 10px 30px -10px rgba(11, 11, 12, 0.18);
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Film grain strength, per theme. The field is bright-biased (measured mean
+     187/255 rather than 128) and `--grain-filter` re-centres it on mid-grey, so
+     `overlay` — the one blend that is mean-preserving around the backdrop — is
+     usable in *both* themes. `brightness() contrast()` rather than an SVG
+     `feComponentTransfer`: CSS filter functions are evaluated in sRGB, whereas
+     SVG filter primitives default to linearRGB, where the same nominal shift
+     moved the mean by 59 levels in one setting and 118 in another.
+
+     The pair is solved, not bisected. CSS applies filter functions left to
+     right, so `brightness(k) contrast(c)` composes as `x → ckx + (0.5 − 0.5c)`,
+     which pivots about 0.5 and scales. With the field measured at mean 0.733 /
+     sd 0.060, holding the mean at 0.5 requires `k = 0.5/0.733 = 0.68` for any
+     `c`, and `c = 1.5` then restores the spread to 0.061 — centred, and no
+     flatter than the raw tile. (An earlier draft had the composition backwards
+     and landed the mean at 65; the measured sd still matched, which is what
+     identified the error.)
+
+     Centring also makes the strength free: with `overlay` on a mid-grey field
+     the surface shift is under 0.2 levels at *any* opacity, so `--grain-opacity`
+     buys texture and nothing else. Measured at these values: spread 1.79 light
+     / 1.69 dark, shift −0.19 / −0.13 — against 1.68 / 1.75 at −5.2 / +6.6 for
+     the uncentred `multiply`/`screen` pairing this replaced. Same texture, and
+     the surface colour is left alone. */
+  --grain-opacity: 1;
+  --grain-blend: overlay;
+  --grain-filter: brightness(0.68) contrast(1.5);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #0a0a0b;
+  --paper-raised: rgba(22, 22, 25, 0.72);
+  --surface: #17171a;
+  --surface-2: #202024;
+  --tile-top: #24242a;
+  --tile-bottom: #16161a;
+
+  --ink: #f6f6f4;
+  --ink-soft: #cfcfd3;
+  --muted: #8c8c93;
+  --faint: #5c5c64;
+
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.2);
+
+  --accent: #f0703f;
+  --accent-soft: rgba(240, 112, 63, 0.16);
+  --good: #4fbf8b;
+  --good-soft: rgba(79, 191, 139, 0.16);
+  --bad: #e0706a;
+  --bad-soft: rgba(224, 112, 106, 0.16);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.5), 0 28px 56px -20px rgba(0, 0, 0, 0.75);
+  --shadow-nav: 0 1px 1px rgba(0, 0, 0, 0.4), 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+
+  /* Same centred field and same mean-preserving blend as the light theme; only
+     the strength differs, because `overlay` bites harder on a dark backdrop and
+     the same opacity would read as twice the texture. */
+  --grain-opacity: 0.58;
+  --grain-blend: overlay;
+  --grain-filter: brightness(0.68) contrast(1.5);
+}
+
+/* ------------------------------------------------------------------ *
+ * Expose tokens to Tailwind utilities.
+ * ------------------------------------------------------------------ */
+@theme inline {
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, "Segoe UI",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", "Noto Sans SC",
+    "Noto Sans KR", "Malgun Gothic", "Nirmala UI", "Noto Sans Devanagari", sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+
+  --color-paper: var(--paper);
+  --color-raised: var(--paper-raised);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+  --shadow-nav: var(--shadow-nav);
+
+  /* Radius scale — see the block at the top of this file. */
+  --radius-card: 26px;
+  --radius-panel: 20px;
+  --radius-row: 16px;
+  --radius-chip: 12px;
+
+  --ease-quart: var(--ease-out-quart);
+  --ease-expo: var(--ease-out-expo);
+
+  --animate-rise: rise 0.5s var(--ease-out-expo) both;
+  --animate-pop: pop 0.36s var(--ease-out-quart) both;
+  --animate-shimmer: shimmer 1.6s var(--ease-in-out-soft) infinite;
+  --animate-flame: flame 2.4s var(--ease-in-out-soft) infinite;
+  --animate-drift: drift 9s var(--ease-in-out-soft) infinite;
+  --animate-ring: ring 1.4s var(--ease-out-quart) infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -160% 0;
+  }
+  100% {
+    background-position: 260% 0;
+  }
+}
+
+@keyframes flame {
+  0%,
+  100% {
+    transform: scale(1) rotate(-1.5deg);
+  }
+  50% {
+    transform: scale(1.08) rotate(1.5deg);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0) scale(1.03);
+  }
+}
+
+@keyframes ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 26;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0) rotate(0deg) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx, 0px), var(--dy, 260px), 0) rotate(var(--rot, 220deg))
+      scale(1);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Base
+ * ------------------------------------------------------------------ */
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv05" 1, "ss01" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Native-app feel: no text selection on chrome, but keep it in content. */
+  .chrome-noselect,
+  .chrome-noselect * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .selectable,
+  .selectable * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Component primitives
+ * ------------------------------------------------------------------ */
+@layer components {
+  /* Primary surface. Padding is applied by the consumer with pad-card. */
+  .surface-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+  }
+
+  /* The signature "glyph tile" from the reference language: a rounded
+     square with a soft vertical gradient, glyph centred, label beneath. */
+  .glyph-tile {
+    position: relative;
+    display: grid;
+    place-items: center;
+    background-image: linear-gradient(180deg, var(--tile-top), var(--tile-bottom));
+    border-radius: 22%;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      0 1px 1px rgba(11, 11, 12, 0.05),
+      0 8px 20px -12px rgba(11, 11, 12, 0.35);
+    overflow: hidden;
+  }
+
+  [data-theme="dark"] .glyph-tile {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 1px 1px rgba(0, 0, 0, 0.5),
+      0 8px 20px -12px rgba(0, 0, 0, 0.7);
+  }
+
+  .press {
+    transition:
+      transform 0.16s var(--ease-out-quart),
+      background-color 0.16s var(--ease-out-quart),
+      border-color 0.16s var(--ease-out-quart),
+      color 0.16s var(--ease-out-quart),
+      box-shadow 0.16s var(--ease-out-quart);
+  }
+
+  .press:active:not(:disabled) {
+    transform: translateY(1px) scale(0.985);
+  }
+
+  @media (hover: hover) {
+    .lift:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lift);
+    }
+  }
+
+  .hairline {
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      var(--line-strong) 18%,
+      var(--line-strong) 82%,
+      transparent
+    );
+    height: 1px;
+  }
+
+  /* The arc nav's shadow. It has to be a `drop-shadow` filter rather than a
+     box-shadow: the bar is a domed shape, and a box-shadow would paint a
+     rectangle behind it — visible in the two concave corners the arc leaves
+     beside its apex. */
+  .arc-nav-shadow {
+    filter: drop-shadow(0 2px 3px rgba(11, 11, 12, 0.05))
+      drop-shadow(0 14px 26px rgba(11, 11, 12, 0.16));
+  }
+
+  [data-theme="dark"] .arc-nav-shadow {
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5))
+      drop-shadow(0 14px 26px rgba(0, 0, 0, 0.6));
+  }
+
+  /* Horizontal swipe is a nav gesture; vertical panning must still reach the
+     page behind the bar. */
+  .arc-nav {
+    touch-action: pan-y;
+  }
+
+  /* Film grain — a real noise field, not a dot grid.
+     There used to be a second `.speckle` texture here (a regular 7px
+     `radial-gradient` dot grid, masked radially). It was removed, for two
+     reasons:
+
+     · The two could not coexist. Both were defined as `.X::after`, so an
+       element carrying both classes got a *single* pseudo-element that both
+       rules targeted, merged property-by-property. Measured: the grain's
+       `background-image` and `background-size` won (later in source) while the
+       speckle's `mask-image` still applied — so the film grain rendered masked
+       by the halftone's radial fade and the dot grid never appeared at all. Not
+       "either, or both"; neither, by accident.
+     · It made the app inconsistent: on `/learn` the "Today's words" card had
+       the dot grid while the adjacent word-chart card had grain, so two
+       neighbouring cards used different texture techniques.
+
+     One texture, applied by one class, everywhere. The dot grid was also the
+     wrong character — the reference carries a fine uniform grain, not a
+     mechanical 7px screen.
+     `feTurbulence` at a high base frequency, desaturated to pure luminance,
+     tiled with `stitchTiles` so the 140px tile has no visible seam, with alpha
+     forced opaque by the matrix (the turbulence's own alpha varies, and a
+     semi-transparent tile makes every pixel measurement of the field wrong —
+     `drawImage` + `getImageData` reads back premultiplied).
+
+     The field is *bright-biased*: measured mean 187/255, not the 128 you would
+     assume, because `fractalNoise` sums four octaves. Left alone that makes
+     `overlay` and `soft-light` near no-ops on a near-white card, and forces a
+     choice between `multiply` (dead in the dark) and `screen` (lightens it) —
+     both of which cost 5-7 levels of surface colour. So the field is re-centred
+     on mid-grey instead, by the `--grain-filter` token above, which is what
+     makes one mean-preserving blend work in both themes. The derivation, and
+     why it is a CSS filter rather than an SVG one, is documented there.
+
+     Strengths were chosen against measurements, not by eye
+     (`.workbuddy-ai/grain-sweep.mjs` reports the luminance spread of a card
+     interior with the grain on versus off). The first version of this shipped
+     `soft-light` at 0.32, which measured a spread of 0.48 levels against a flat
+     surface — nominally present and visually absent. */
+  .grain {
+    position: relative;
+    /* Contain the blend to this surface — otherwise the blend would sample
+       whatever sits behind the card and the grain would shift with the page. */
+    isolation: isolate;
+  }
+
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: var(--grain-opacity);
+    mix-blend-mode: var(--grain-blend);
+    /* Re-centres the noise field on mid-grey. See the token above. */
+    filter: var(--grain-filter, none);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 1'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size: 140px 140px;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .skeleton {
+    background-image: linear-gradient(
+      90deg,
+      var(--surface) 0%,
+      var(--surface-2) 42%,
+      var(--surface) 84%
+    );
+    background-size: 220% 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Layout utilities — the only sanctioned ways to pad a surface.
+ * Defined as utilities (not classes) so `lg:` and friends still work.
+ * ------------------------------------------------------------------ */
+
+/** Primary card padding: 20px on phones, 28px from lg up. */
+@utility pad-card {
+  padding: 1.25rem;
+}
+
+@utility pad-card-lg {
+  padding: 1.75rem;
+}
+
+/** Secondary panel padding. */
+@utility pad-panel {
+  padding: 1.25rem;
+}
+
+/** List row: 16px vertical, 16px horizontal. */
+@utility pad-row {
+  padding: 1rem;
+}
+
+/** Sheet gutter, so the header and the body always line up. */
+@utility pad-sheet {
+  padding-inline: 1.5rem;
+}
+
+/* ------------------------------------------------------------------ *
+ * Safe areas + install/standalone chrome
+ * ------------------------------------------------------------------ */
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion — delight must degrade, never disappear.
+ * We keep opacity/colour feedback and drop all transforms.
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.08s !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reduce-hide {
+    display: none !important;
+  }
+}
+
+/* The same treatment when the user has explicitly asked for it in Settings,
+   regardless of the OS setting. Delight must always have an off switch. */
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.08s !important;
+  scroll-behavior: auto !important;
+}
+
+[data-reduce-motion="true"] .reduce-hide {
+  display: none !important;
+}
+
+/* ================================================================== *
+ * Marketing surface — the Linear-derived language
+ * ================================================================== *
+ *
+ * The public site (landing, sign in, create account) speaks a different
+ * language from the app, and this block is where that language is defined.
+ * It is additive: every token below is a *new* name, so nothing the PWA
+ * already uses (`--paper`, `--surface`, `--ink`, `--accent`, the 26px card
+ * radius) changes, and the two can coexist in one stylesheet without either
+ * one winning by accident.
+ *
+ * ── Why a second language at all ────────────────────────────────────
+ *
+ * The app is a paper-and-ink reading surface: warm off-white, an ember
+ * accent, generous radii, a film grain on every card. That is right for
+ * somewhere you spend twenty minutes a day. The marketing site has the
+ * opposite job — it is read for ninety seconds, in the dark, by someone
+ * deciding whether to care — so it takes Linear's midnight-precision
+ * instrument: near-black surfaces, hairline borders, one acid-lime accent,
+ * and typography that carries hierarchy through spacing and weight rather
+ * than size and colour.
+ *
+ * ── The rules this encodes ──────────────────────────────────────────
+ *
+ * · Surfaces ascend: void → carbon → obsidian. A card is never a different
+ *   *hue*, only a slightly different value, and it is separated by a
+ *   hairline rather than a shadow.
+ * · No decorative gradients and no texture on cards. The one exception is
+ *   the closing CTA's shader, which is content rather than decoration.
+ * · One chromatic action colour. Acid lime is the primary button and
+ *   nothing else; every other accent is a data colour (pulse, coral,
+ *   signal) used to mean something.
+ * · Weight is capped at 600. Linear's scale tops out at 590, and the point
+ *   is that a heading earns its rank from tracking and space, not from
+ *   being 800-weight.
+ */
+/**
+ * Raw marketing values.
+ *
+ * Declared as plain custom properties rather than straight inside `@theme`,
+ * for the same reason the app's tokens are: hand-written CSS needs to read them
+ * too — the selection colour, the nav's backdrop blur, and the shader's
+ * fallback gradient all reference these directly, and a token that only exists
+ * inside `@theme inline` is inlined into utilities and never emitted as a
+ * variable at all.
+ *
+ * They are not theme-switched. The marketing surface is dark in both light and
+ * dark mode, so there is no `[data-theme]` counterpart for this block.
+ */
+:root {
+  --mkt-void: #08090a;
+  --mkt-carbon: #0f1011;
+  --mkt-obsidian: #161718;
+  --mkt-graphite: #23252a;
+  --mkt-smoke: #383b3f;
+  --mkt-ash: #62666d;
+  --mkt-fog: #8a8f98;
+  --mkt-mist: #d0d6e0;
+  --mkt-bone: #e5e5e6;
+  --mkt-acid: #e4f222;
+  --mkt-pulse: #27a644;
+  --mkt-coral: #eb5757;
+  --mkt-signal: #02b8cc;
+  --mkt-iris: #6366f1;
+  --mkt-lavender: #8b5cf6;
+}
+
+@theme inline {
+  /* Canvas and surfaces — an ascending ladder of near-blacks. */
+  --color-void: var(--mkt-void);
+  --color-carbon: var(--mkt-carbon);
+  --color-obsidian: var(--mkt-obsidian);
+
+  /* Hairlines and secondary surfaces. */
+  --color-graphite: var(--mkt-graphite);
+  --color-smoke: var(--mkt-smoke);
+
+  /* Text ladder, brightest first. */
+  --color-ash: var(--mkt-ash);
+  --color-fog: var(--mkt-fog);
+  --color-mist: var(--mkt-mist);
+  --color-bone: var(--mkt-bone);
+
+  /* The single chromatic action colour, plus the data colours. */
+  --color-acid: var(--mkt-acid);
+  --color-pulse: var(--mkt-pulse);
+  --color-coral: var(--mkt-coral);
+  --color-signal: var(--mkt-signal);
+  --color-iris: var(--mkt-iris);
+  --color-lavender: var(--mkt-lavender);
+
+  /* Linear's radius scale: 12px cards, 6px buttons, 4px badges. */
+  --radius-mkt: 12px;
+  --radius-mkt-sm: 6px;
+  --radius-mkt-xs: 4px;
+}
+
+/**
+ * The marketing surface scope.
+ *
+ * Three things the app sets globally that are wrong on a near-black page, so
+ * they are re-stated here rather than changed at the root — the app still needs
+ * its own versions.
+ *
+ * · `color-scheme: dark` makes the browser draw dark scrollbars, dark
+ *   autofill and a dark caret. Without it the marketing pages get a bright
+ *   white scrollbar down the side of a near-black design.
+ * · The selection colours. The base rule is ink-on-paper, which on this
+ *   surface is a black highlight on a black page — invisible.
+ * · The focus ring. The base rule is a 2px `--ink` outline; on `--void` that
+ *   is a black ring on a black page. It becomes acid lime, which is both
+ *   visible and the one chromatic accent this language allows.
+ */
+[data-surface="marketing"] {
+  color-scheme: dark;
+}
+
+[data-surface="marketing"] ::selection {
+  background: var(--mkt-acid);
+  color: var(--mkt-void);
+}
+
+[data-surface="marketing"] :focus-visible {
+  outline: 2px solid var(--mkt-acid);
+  outline-offset: 3px;
+}
+
+/**
+ * The marketing typeface.
+ *
+ * Inter, not Figtree. The two are both geometric sans, so the swap reads as a
+ * change of temperament rather than of category — Inter is tighter, more
+ * neutral and holds up at 510 weight, which is where this design lives. The
+ * `cv` features are Inter's character variants: single-storey `a` is off but
+ * the curved `l`, open `6`/`9` and single-storey `g` are on, which is the
+ * combination Linear's own copy uses.
+ */
+@utility font-marketing {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings:
+    "cv01" 1,
+    "cv05" 1,
+    "cv09" 1,
+    "cv11" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/**
+ * The marketing hairline.
+ *
+ * A 1px border whose colour is *slightly* lighter than the surface beneath it —
+ * the whole of Linear's separation model. Defined as a utility so the value
+ * lives in one place; `border-graphite` is used directly where a full border is
+ * wanted.
+ */
+@utility hairline-mkt {
+  border: 1px solid var(--color-graphite);
+}
+
+/**
+ * Glyph tiles on the marketing surface.
+ *
+ * The app's tile is a light vertical gradient with a dark glyph — correct on
+ * paper, and two of the three things this language forbids on near-black
+ * (a decorative gradient, and a shadow used to lift a surface). Here it becomes
+ * the obsidian step of the same surface ladder with a graphite hairline and an
+ * inset highlight, so it still reads as a raised tile without either.
+ *
+ * Scoped rather than added as a prop: the tile is the product's signature
+ * element and appears in onboarding, the picker and the session summary, so a
+ * prop would mean touching every one of those call sites to change nothing.
+ * The selectors below out-specify the `text-ink` utilities the component
+ * carries, which is why the glyph colour does not need a prop either.
+ */
+[data-surface="marketing"] .glyph-tile {
+  background-image: none;
+  background-color: var(--mkt-obsidian);
+  border: 1px solid var(--mkt-graphite);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+[data-surface="marketing"] .glyph-tile > span:first-child {
+  color: var(--mkt-bone);
+}
+
+[data-surface="marketing"] .glyph-tile > span:not(:first-child) {
+  color: color-mix(in srgb, var(--mkt-bone) 55%, transparent);
+}
+
+/**
+ * The FAQ accordion (the Osmo "CSS accordion" technique).
+ *
+ * The panel is a grid whose single row animates between `0fr` and `1fr`. That
+ * is the only pure-CSS way to height-animate content of unknown size: the row
+ * is a track with no intrinsic height, and a grid track at `0fr` collapses to
+ * zero regardless of what is inside it. The `overflow:hidden` inner wrapper is
+ * what clips the content as the track shrinks — without it the content would
+ * spill out instead of being revealed.
+ *
+ * The chevron is rotated off `data-accordion-status` so the icon's motion and
+ * the panel's open/closed state are derived from the same attribute rather than
+ * two separately-managed classes. `0.001deg` rather than `0deg` on the active
+ * state is a deliberate guard: some engines skip the transition for the
+ * identity angle, and the imperceptible offset keeps the tween live.
+ */
+[data-surface="marketing"] .accordion-css__item-bottom {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.625, 0.05, 0, 1);
+}
+
+[data-surface="marketing"]
+  [data-accordion-status="active"]
+  .accordion-css__item-bottom {
+  grid-template-rows: 1fr;
+}
+
+[data-surface="marketing"] .accordion-css__item-bottom-wrap {
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-surface="marketing"] .accordion-css__item-icon {
+  transition: transform 0.45s cubic-bezier(0.625, 0.05, 0, 1);
+  transform: rotate(0deg);
+}
+
+[data-surface="marketing"]
+  [data-accordion-status="active"]
+  .accordion-css__item-icon {
+  transform: rotate(180deg);
+}

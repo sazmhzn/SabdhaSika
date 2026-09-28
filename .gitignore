@@ -29,3 +29,12 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# vercel
+.vercel
+
+# local build / debug artifacts
+build_*.txt
+tsc_*.txt
+*_out.txt
+debug-*.png

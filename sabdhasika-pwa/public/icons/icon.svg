@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SabdhaSika">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eeeeec" />
+      <stop offset="1" stop-color="#d6d6d2" />
+    </linearGradient>
+    <style>
+      .g { font: 700 264px "Nirmala UI", "Noto Sans Devanagari", "Mangal", system-ui, sans-serif; fill: #0b0b0c; }
+      .l { font: 600 58px "Figtree", "Segoe UI", system-ui, sans-serif; fill: #6c6c72; letter-spacing: 0.01em; }
+      @media (prefers-color-scheme: dark) {
+        .g { fill: #f6f6f4; }
+        .l { fill: #9a9aa1; }
+      }
+    </style>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#tile)" />
+  <text class="g" x="256" y="272" text-anchor="middle" dominant-baseline="middle">श</text>
+  <text class="l" x="256" y="380" text-anchor="middle">śa</text>
+</svg>
