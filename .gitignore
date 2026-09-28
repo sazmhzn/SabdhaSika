@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# logs
+*.log
+npm-debug.log*
+
+# builds / caches
+build/
+dist/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# local tooling & backups
+.workbuddy-ai/
+.backup-src-pre-spacing/
+.playwright-mcp/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
