@@ -35,7 +35,8 @@ for (const words of Object.values(DATASET)) {
 
 /** Rank-ordered list for a language. Always sorted by frequency. */
 export function getVocabulary(language: LanguageCode): VocabularyWord[] {
-  return DATASET[language] ?? [];
+  const list = DATASET[language] ?? [];
+  return [...list].sort((a, b) => a.frequencyRank - b.frequencyRank);
 }
 
 export function getWord(id: string): VocabularyWord | undefined {

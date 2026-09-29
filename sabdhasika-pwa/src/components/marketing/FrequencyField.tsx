@@ -123,8 +123,9 @@ void main() {
   float mist = exp(-max(d, 0.0) * 2.8);
   col += mix(SIGNAL, LIME, exp(-max(d, 0.0) * 7.0)) * mist * 0.16;
 
-  /* The ridgeline itself. */
-  col += LIME * exp(-abs(d) * 62.0) * 0.42;
+  /* The ridgeline itself — gets a lift as the sweep passes over it. */
+  float sweepGlow = exp(-abs(uv.x - sweepX) * 9.0);
+  col += LIME * exp(-abs(d) * 62.0) * (0.42 + 0.5 * sweepGlow);
 
   /* ── filaments: the words standing on the distribution ──
      132 columns across the frame, each a hairline with its own brightness
@@ -137,7 +138,7 @@ void main() {
   float fseed = hash12(vec2(fid, 3.0));
   float lineMask = 1.0 - smoothstep(0.02, 0.20 + 0.06 * fseed, abs(ffrac - 0.5));
   float rise = exp(-max(d, 0.0) * 13.0);
-  float flick = 0.45 + 0.55 * vnoise(vec2(fid * 0.85, iTime * 0.30));
+  float breathe = 0.40 + 0.60 * sin(iTime * 1.1 + fid * 0.6 + fseed * 6.2831);
   float rank = clamp(uv.x * 0.5 + 0.5, 0.0, 1.0);
   col += LIME * lineMask * rise * flick * (1.0 / (1.0 + rank * 5.0)) * 0.22;
 

@@ -9,11 +9,15 @@ import { marketingButtonClasses } from "@/components/ui/button-classes";
 import { GlyphTile } from "@/components/ui/GlyphTile";
 import { cn } from "@/lib/cn";
 
+/* Absolute (`/#id`) rather than relative (`#id`) so the links resolve to home
+   page sections from *any* route — on /register or /signin a bare `#id` would
+   resolve to `signup#id` and scroll nowhere. Rendered with <Link> for
+   client-side navigation. */
 const LINKS = [
-  { href: "#how", label: "How it works" },
-  { href: "#ladder", label: "The ladder" },
-  { href: "#languages", label: "Languages" },
-  { href: "#questions", label: "Questions" },
+  { href: "/#how", label: "How it works" },
+  { href: "/#ladder", label: "The ladder" },
+  { href: "/#languages", label: "Languages" },
+  { href: "/#questions", label: "Questions" },
 ];
 
 /**
@@ -89,12 +93,12 @@ export function SiteNav() {
         <ul className="hidden items-center gap-0.5 lg:flex">
           {LINKS.map((link) => (
             <li key={link.href}>
-              <a
+              <Link
                 href={link.href}
                 className="inline-flex h-8 items-center rounded-mkt-sm px-3 text-[13px] font-[450] text-fog transition-colors duration-150 hover:text-bone"
               >
                 {link.label}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
@@ -152,13 +156,13 @@ export function SiteNav() {
             <ul className="mx-auto flex w-full max-w-[1200px] flex-col px-6 py-2">
               {LINKS.map((link) => (
                 <li key={link.href}>
-                  <a
+                  <Link
                     href={link.href}
                     onClick={() => setOpen(false)}
                     className="flex h-12 items-center text-[14px] font-[510] text-mist"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
               {!signedIn && (
