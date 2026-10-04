@@ -17,7 +17,21 @@ export type LanguageCode =
   | "ne"
   | "hi"
   | "ar"
-  | "ru";
+  | "ru"
+  | "asl";
+
+/**
+ * Spoken and signed languages are not interchangeable, and the difference
+ * decides real behaviour rather than being a label: a signed language has no
+ * speech synthesiser to call, no BCP-47 voice to pick, and no corpus frequency
+ * list to rank against.
+ *
+ * Sign languages have no published frequency ranking — the whole ordering
+ * premise of this product is built on one. So a signed track carries its own
+ * `syllabusOrdinal`, ordered by how early a sign is needed in ordinary life,
+ * and `frequencyRank` is left at 0 rather than faked.
+ */
+export type Modality = "spoken" | "signed";
 
 /** Languages a learner can read meanings in. Superset of LanguageCode. */
 export type NativeLanguageCode =
@@ -36,7 +50,7 @@ export type MasteryStatus = "new" | "learning" | "familiar" | "mastered";
 export type Rating = "hard" | "good" | "easy";
 
 /** Lightweight, varied recall interactions. */
-export type RecallMode = "reveal" | "choice" | "type";
+export type RecallMode = "reveal" | "choice" | "type" | "listen" | "speak";
 
 export interface ExampleSentence {
   native: string;
@@ -59,8 +73,23 @@ export interface VocabularyWord {
   /** Glosses in other native languages, keyed by code. */
   translations?: Partial<Record<NativeLanguageCode, string>>;
   partOfSpeech?: string;
-  /** 1 = most frequent. The spine of the whole product. */
+  /**
+   * 1 = most frequent. The spine of the whole product.
+   *
+   * Always 0 for a signed language, which has no corpus frequency list. Reading
+   * anything meaningful out of this field on a sign track would be reading a
+   * number that was never computed, so it is left honestly empty instead.
+   * Use `syllabusOrdinal` for signed tracks.
+   */
   frequencyRank: number;
+  /**
+   * Teaching order for a signed language, where no frequency corpus exists.
+   *
+   * Ordered by how early a sign is needed in ordinary life, not by a corpus. 1
+   * comes first. Undefined for every spoken language — there, frequency rank
+   * already answers "what comes next".
+   */
+  syllabusOrdinal?: number;
   /**
    * Raw occurrences of this word in the source corpus. Optional because the
    * dataset can be swapped for one without corpus backing; when present it is
@@ -81,12 +110,19 @@ export interface WordProgress {
   repetitions: number;
   correctAnswers: number;
   incorrectAnswers: number;
-  /** SM-2 style ease factor. */
-  ease: number;
-  /** Current interval in days. */
+  /**
+   * FSRS stability, in days: how long this word is expected to hold at 90%
+   * recall. Absent on records written before the FSRS migration; the scheduler
+   * treats such a record as having no history and re-seeds it on first review,
+   * which costs one scheduling step but never wrong content.
+   */
+  stability?: number;
+  /** Current interval in days. A cached denormalisation of `stability`. */
   intervalDays: number;
   /** 0 = trivial, 1 = very hard. Feeds the difficulty-first review queue. */
   difficulty: number;
+  /** SM-2 ease factor. Retained only so pre-FSRS records stay readable. */
+  ease?: number;
   lapses: number;
   firstSeenAt: string;
   lastReviewedAt?: string;
@@ -102,6 +138,8 @@ export interface Settings {
   autoPlayPronunciation: boolean;
   hapticsEnabled: boolean;
   soundEnabled: boolean;
+  /** Opt-in: nudge while the app is open on a day the streak is at risk. */
+  reminderEnabled: boolean;
   reduceMotion: "system" | "always" | "never";
   theme: "system" | "light" | "dark";
 }
@@ -165,6 +203,8 @@ export interface AppState {
   streak: StreakState;
   /** Milestones already celebrated, so we never celebrate twice. */
   celebratedMilestones: number[];
+  /** Word ids the learner has saved, in the order they were saved. */
+  bookmarks: string[];
 }
 
 export interface RecallEntry {
@@ -200,7 +240,13 @@ export type MetricEventName =
   | "error_shown"
   | "offline_session"
   | "install_prompt_shown"
-  | "install_accepted";
+  | "install_accepted"
+  | "word_search"
+  | "word_viewed"
+  | "word_saved"
+  | "backup_exported"
+  | "backup_imported"
+  | "streak_risk_shown";
 
 export interface MetricEvent {
   name: MetricEventName;

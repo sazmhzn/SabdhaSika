@@ -1,5 +1,5 @@
 import { FREQUENCY_META } from "@/lib/data/frequency/manifest";
-import type { LanguageCode, NativeLanguageCode } from "@/lib/types";
+import type { LanguageCode, Modality, NativeLanguageCode } from "@/lib/types";
 
 export interface LanguageMeta {
   code: LanguageCode;
@@ -7,11 +7,20 @@ export interface LanguageMeta {
   /** Endonym — shown large in the picker. */
   nativeName: string;
   flag: string;
-  /** BCP-47 tag used for SpeechSynthesis. */
-  bcp47: string;
+  /**
+   * BCP-47 tag used for SpeechSynthesis.
+   *
+   * Null for a signed language. There is no voice to speak with, and passing a
+   * tag anyway would have the pronunciation button silently do nothing.
+   */
+  bcp47: string | null;
+  modality: Modality;
   /** Does this script need a reading + romanization layer? */
   needsRomanization: boolean;
-  /** Entries in the shipped corpus frequency list. Derived — see LANGUAGES. */
+  /**
+   * Entries in the shipped corpus frequency list. Derived — see LANGUAGES.
+   * Always 0 for a signed language, which has no corpus.
+   */
   frequencyListSize: number;
   /** One-line "why this language" for the picker. */
   blurb: string;
@@ -37,6 +46,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "日本語",
     flag: "🇯🇵",
     bcp47: "ja-JP",
+    modality: "spoken",
     needsRomanization: true,
     blurb: "Kana + kanji, pitch accent",
     richSeed: true,
@@ -49,6 +59,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "한국어",
     flag: "🇰🇷",
     bcp47: "ko-KR",
+    modality: "spoken",
     needsRomanization: true,
     blurb: "Hangul, verb-final",
     richSeed: true,
@@ -61,6 +72,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "中文",
     flag: "🇨🇳",
     bcp47: "zh-CN",
+    modality: "spoken",
     needsRomanization: true,
     blurb: "Simplified, tonal pinyin",
     richSeed: true,
@@ -73,6 +85,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "Español",
     flag: "🇪🇸",
     bcp47: "es-ES",
+    modality: "spoken",
     needsRomanization: false,
     blurb: "Latin script, no reading layer",
     richSeed: true,
@@ -85,6 +98,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "Français",
     flag: "🇫🇷",
     bcp47: "fr-FR",
+    modality: "spoken",
     needsRomanization: false,
     blurb: "Latin script, liaison",
     richSeed: true,
@@ -97,6 +111,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "Deutsch",
     flag: "🇩🇪",
     bcp47: "de-DE",
+    modality: "spoken",
     needsRomanization: false,
     blurb: "Latin script, compound nouns",
     richSeed: true,
@@ -109,6 +124,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "नेपाली",
     flag: "🇳🇵",
     bcp47: "ne-NP",
+    modality: "spoken",
     needsRomanization: true,
     blurb: "Devanagari, SOV order",
     richSeed: true,
@@ -121,6 +137,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "हिन्दी",
     flag: "🇮🇳",
     bcp47: "hi-IN",
+    modality: "spoken",
     needsRomanization: true,
     blurb: "Devanagari, gendered verbs",
     richSeed: true,
@@ -133,6 +150,7 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "العربية",
     flag: "🇸🇦",
     bcp47: "ar-SA",
+    modality: "spoken",
     needsRomanization: true,
     blurb: "RTL script, root system",
     richSeed: true,
@@ -145,11 +163,29 @@ const LANGUAGE_SPECS: Omit<LanguageMeta, "frequencyListSize">[] = [
     nativeName: "Русский",
     flag: "🇷🇺",
     bcp47: "ru-RU",
+    modality: "spoken",
     needsRomanization: true,
     blurb: "Cyrillic, case system",
     richSeed: true,
     glyph: "Ж",
     glyphReading: "zhe",
+  },
+  {
+    code: "asl",
+    name: "American Sign Language",
+    nativeName: "ASL",
+    flag: "🤟",
+    // No voice, so nothing to synthesise. Spoken-word features that assume a
+    // BCP-47 tag are gated on this being null.
+    bcp47: null,
+    modality: "signed",
+    // Letters are written A-Z in ASL fingerspelling; the romanization layer
+    // carries the names ("A" is spelled "ay").
+    needsRomanization: true,
+    blurb: "Fingerspelling and handshape",
+    richSeed: true,
+    glyph: "🤟",
+    glyphReading: "ASL",
   },
 ];
 

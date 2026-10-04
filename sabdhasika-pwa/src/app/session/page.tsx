@@ -407,7 +407,8 @@ export default function SessionPage() {
             </dl>
           </div>
 
-          {settings.pronunciationEnabled && (
+          {/* A signed language has no voice, so there is nothing to play. */}
+          {settings.pronunciationEnabled && language.bcp47 && (
             <div className="flex items-center gap-2 rounded-panel border border-line bg-paper pad-panel">
               <PronunciationButton
                 text={word.word}

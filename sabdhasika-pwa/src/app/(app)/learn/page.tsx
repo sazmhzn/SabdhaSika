@@ -69,6 +69,13 @@ export default function LearnPage() {
   const reviewCount = session?.reviewCount ?? 0;
   const total = newCount + reviewCount || settings.dailyGoal;
 
+  // True when `estimateCapacity` has sized the day below the learner's own goal.
+  // Worth saying out loud: a number that quietly shrinks would otherwise read as
+  // the app failing them.
+  const shorterThanGoal = Boolean(
+    session && session.wordIds.length > 0 && session.wordIds.length < settings.dailyGoal,
+  );
+
   // The recall drill is a bonus, so it is advertised rather than pushed: a
   // single quiet row, and only once there is something worth drilling.
   const recallReady = useMemo(() => recallReadyCount(state), [state]);
@@ -199,6 +206,15 @@ export default function LearnPage() {
                       </>
                     )}
                   </p>
+                  {/* The day's size adapts to how the last few days went. Saying
+                      so stops the number reading as a quota the learner is
+                      failing, which is how a fixed daily goal erodes trust. */}
+                  {shorterThanGoal && (
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-faint">
+                      A lighter day — sized to how the last few went. Your goal of{" "}
+                      {settings.dailyGoal} is still the ceiling.
+                    </p>
+                  )}
                 </div>
               </div>
 

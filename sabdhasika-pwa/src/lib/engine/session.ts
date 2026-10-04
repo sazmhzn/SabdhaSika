@@ -1,8 +1,11 @@
 import { getVocabulary } from "@/lib/data";
 import { DAY_MS, dayKey, hashString, seededRandom } from "@/lib/date";
+import { speechAvailable } from "@/lib/audio";
+import { speechInputAvailable } from "@/lib/speech-input";
 import type {
   AppState,
   DailySession,
+  LanguageCode,
   RecallMode,
   VocabularyWord,
   WordProgress,
@@ -39,6 +42,92 @@ export interface SessionPlan {
 
 const RECENT_WINDOW_MS = 10 * DAY_MS;
 
+/** Floor and ceiling on the adaptive queue size. */
+const MIN_DAILY = 8;
+
+/** How many finished days to look back when judging a learner's appetite. */
+const CAPACITY_WINDOW = 7;
+
+/**
+ * How many words this learner can realistically do today.
+ *
+ * The old behaviour was a fixed `dailyGoal` every single day, chosen by the
+ * learner in onboarding and never revisited. That is a promise the app cannot
+ * keep honestly — somebody having a bad week still gets handed 30 cards, and the
+ * most common way a learner stops using a daily app is by failing the daily
+ * promise repeatedly rather than by finding it too hard.
+ *
+ * So the goal becomes a ceiling and the actual queue is sized from how the last
+ * few days actually went. Review accuracy is the signal: days where most
+ * answers were "hard" are days the learner was overwhelmed, and the honest
+ * response is a shorter day rather than the same day again.
+ *
+ * Deliberately bounded at both ends. Never below `MIN_DAILY`, because a queue
+ * too short to feel like progress is its own failure mode; never above
+ * `dailyGoal`, because the learner set that ceiling deliberately.
+ *
+ * With no history at all this returns the full goal — a new learner has told
+ * us nothing yet, so we take them at their word.
+ */
+export function estimateCapacity(state: AppState, now: Date = new Date()): number {
+  const goal = state.settings.dailyGoal;
+  const finished = Object.values(state.sessions)
+    .filter((s) => s.completedAt && s.wordIds.length > 0 && !s.isReview)
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, CAPACITY_WINDOW);
+
+  if (finished.length === 0) return goal;
+
+  // Mean share of cards the learner rated "hard", weighted toward recent days.
+  // The weighting is steeply geometric: a learner who has just improved should
+  // see a longer day *today*, not in three days' time. An arithmetic recency
+  // weight is too weak to move the number at all — six hard days swamp one good
+  // one — which would mean the app ignored the most recent evidence.
+  let weight = 0;
+  let weightedHard = 0;
+  for (const [i, session] of finished.entries()) {
+    const recency = Math.pow(0.55, i);
+    const ratings = Object.values(session.ratings);
+    if (ratings.length === 0) continue;
+    const hard = ratings.filter((r) => r === "hard").length / ratings.length;
+    weightedHard += hard * recency;
+    weight += recency;
+  }
+  if (weight === 0) return goal;
+
+  const hardRate = weightedHard / weight;
+
+  /*
+   * How far this learner is from cruising, 0..1, where 0 means "every answer
+   * was hard" and 1 means "none were".
+   *
+   * `hardRate` alone is far too twitchy. A weighted average over a week means
+   * one bad day out of six sits around 0.17, and mapping that onto the queue
+   * collapses a 25-word day to 8 — so a single tired evening would undo weeks
+   * of steady work and read to the learner as the app giving up on them.
+   *
+   * Two things temper it. The response is a power curve, so ordinary weeks stay
+   * near the goal and only sustained difficulty pulls it down. And the weighted
+   * average is taken against a floor rather than a fixed point, which stops one
+   * strong run of good days from being cancelled by a single bad one.
+   */
+  const CONTROL = 0.25; // the weighted hard-rate treated as "a very hard week"
+  const eased = clamp01((CONTROL - hardRate) / CONTROL);
+  // 0.5 keeps mid-range weeks close to the goal instead of halving the queue.
+  const shaped = Math.pow(eased, 0.5);
+  // Never drop more than a third of the goal in one step.
+  const capped = Math.max(shaped, MIN_SCALE);
+
+  return Math.round(MIN_DAILY + capped * (goal - MIN_DAILY));
+}
+
+/** Never shrink below this share of the goal, however hard the week went. */
+const MIN_SCALE = 2 / 3;
+
+function clamp01(n: number): number {
+  return Math.min(1, Math.max(0, n));
+}
+
 function byDifficultyThenDue(a: VocabularyWord, b: VocabularyWord, p: Record<string, WordProgress>) {
   const pa = p[a.id];
   const pb = p[b.id];
@@ -48,33 +137,96 @@ function byDifficultyThenDue(a: VocabularyWord, b: VocabularyWord, p: Record<str
   );
 }
 
+/**
+ * Position of a word in its syllabus.
+ *
+ * A spoken language is ordered by corpus frequency rank — the spine of the
+ * product. A signed language has no corpus, so it is ordered by the ordinal its
+ * track supplies. Falling back to frequency rank for a signed track would order
+ * it by a field that is 0 on every entry.
+ */
+function positionInSyllabus(w: VocabularyWord, signed: boolean): number {
+  return signed ? (w.syllabusOrdinal ?? Number.MAX_SAFE_INTEGER) : w.frequencyRank;
+}
+
+/**
+ * Which interactions this card can use.
+ *
+ * The point of this function is that a mode is never offered unless the device
+ * can actually perform it. `listen` needs a speech synthesiser and `speak`
+ * needs a recogniser, and both are absent often enough — Linux desktops, most
+ * iOS browsers, anywhere the OS ships no voice for the language — that offering
+ * them blindly would hand the learner a button that cannot work.
+ *
+ * New words are always `reveal`: there is nothing yet to recall.
+ */
 function pickReviewModes(
   words: VocabularyWord[],
   progress: Record<string, WordProgress>,
   seed: number,
+  capabilities: { canSpeak: boolean; canListen: boolean },
 ): Record<string, RecallMode> {
   const rand = seededRandom(seed);
   const modes: Record<string, RecallMode> = {};
+
+  // Relative weights once a word is familiar. Recognition is the easiest mode
+  // and gets the least: repeating it every day teaches nothing new, and a
+  // session that is all recognition is a session that never builds recall.
+  const WEIGHTS: Array<[RecallMode, number]> = [
+    ["choice", 0.3],
+    ["type", 0.2],
+    ["reveal", 0.16],
+    ...(capabilities.canListen ? ([["listen", 0.18]] as Array<[RecallMode, number]>) : []),
+    ...(capabilities.canSpeak ? ([["speak", 0.16]] as Array<[RecallMode, number]>) : []),
+  ];
+
   for (const w of words) {
     const p = progress[w.id];
     // Never ask a learner to *type* a word they have only just met.
     const reps = p?.repetitions ?? 0;
-    const roll = rand();
     if (reps <= 1) {
-      modes[w.id] = roll < 0.55 ? "choice" : "reveal";
-    } else if (roll < 0.5) {
-      modes[w.id] = "choice";
-    } else if (roll < 0.72) {
-      modes[w.id] = "type";
-    } else {
-      modes[w.id] = "reveal";
+      modes[w.id] = rand() < 0.55 ? "choice" : "reveal";
+      continue;
     }
+    const roll = rand();
+    let acc = 0;
+    for (const [mode, weight] of WEIGHTS) {
+      acc += weight;
+      if (roll < acc) {
+        modes[w.id] = mode;
+        break;
+      }
+    }
+    // Floating-point fallthrough: never leave a card without a mode.
+    modes[w.id] ??= "reveal";
   }
   return modes;
 }
 
+/**
+ * What this device can do.
+ *
+ * The two are different questions and it is easy to swap them: `listen` plays
+ * audio and so needs a *synthesiser*, while `speak` captures the learner and
+ * needs a *recogniser*.
+ *
+ * A signed language has neither — there is no voice in it to synthesise or
+ * recognise — so both modes are unavailable regardless of the device.
+ *
+ * Resolved once per session build rather than per card, so every card in a
+ * session is judged by the same capability snapshot — a card that changed
+ * interaction mid-session would break the rhythm the queue is built on.
+ */
+function deviceCapabilities(language: LanguageCode): { canSpeak: boolean; canListen: boolean } {
+  if (language === "asl") return { canListen: false, canSpeak: false };
+  return { canListen: speechAvailable(), canSpeak: speechInputAvailable() };
+}
+
 export function buildDailySession(state: AppState, now: Date = new Date()): SessionPlan {
-  const { targetLanguage, dailyGoal } = state.settings;
+  const { targetLanguage } = state.settings;
+  // The learner's setting is a ceiling; the day's actual size adapts to how
+  // the last few days went. See `estimateCapacity`.
+  const dailyGoal = estimateCapacity(state, now);
   const progress = state.progress;
   const vocab = getVocabulary(targetLanguage);
 
@@ -139,7 +291,10 @@ export function buildDailySession(state: AppState, now: Date = new Date()): Sess
   // Sort unseen by frequency so the curated low-rank greetings and everyday
   // words sit alongside the particles at the front of the course, and so the
   // window below is frequency-ordered before being shuffled for variety.
-  const unseenSorted = [...unseen].sort((a, b) => a.frequencyRank - b.frequencyRank);
+  const signed = targetLanguage === "asl";
+  const unseenSorted = [...unseen].sort(
+    (a, b) => positionInSyllabus(a, signed) - positionInSyllabus(b, signed),
+  );
 
   // A learner should never be handed the *same* opening every day, and never
   // only grammar particles. We take the earliest WINDOW unseen words (a mix of
@@ -180,7 +335,7 @@ export function buildDailySession(state: AppState, now: Date = new Date()): Sess
   }
 
   const seed = hashString(`${targetLanguage}:${dayKey(now)}`);
-  const modes = pickReviewModes(ordered, progress, seed);
+  const modes = pickReviewModes(ordered, progress, seed, deviceCapabilities(targetLanguage));
   for (const w of newWords) modes[w.id] = "reveal"; // new words are always "learn" cards
 
   const date = dayKey(now);
@@ -229,7 +384,12 @@ export function buildReviewSession(
     wordIds: ordered.map((w) => w.id),
     newCount: 0,
     reviewCount: ordered.length,
-    modes: pickReviewModes(ordered, state.progress, hashString(`review:${dayKey(now)}`)),
+    modes: pickReviewModes(
+      ordered,
+      state.progress,
+      hashString(`review:${dayKey(now)}`),
+      deviceCapabilities(state.settings.targetLanguage),
+    ),
     ratings: {},
     wordsAtStart: Object.values(state.progress).filter((p) => p.status !== "new").length,
     isReview: true,

@@ -30,9 +30,33 @@ export interface FrequencyEntry {
 
 const CACHE = new Map<LanguageCode, FrequencyEntry[]>();
 
+/**
+ * Languages that have a corpus frequency list at all.
+ *
+ * A signed language has none — there is no published frequency ranking of
+ * signs, which is the entire premise this product is built on. Rather than
+ * pretend otherwise with an empty or invented list, every corpus function
+ * below narrows to this set first and returns nothing for a signed language.
+ */
+export const SPOKEN_LANGUAGES: LanguageCode[] = [
+  "ja",
+  "ko",
+  "zh",
+  "es",
+  "fr",
+  "de",
+  "ne",
+  "hi",
+  "ar",
+  "ru",
+];
+
+const isSpoken = (language: LanguageCode): boolean =>
+  (SPOKEN_LANGUAGES as LanguageCode[]).includes(language);
+
 /* Explicit map rather than a computed import path: the bundler needs to see
    every specifier statically to split them into separate chunks. */
-const LOADERS: Record<LanguageCode, () => Promise<{ FREQ: string }>> = {
+const LOADERS: Partial<Record<LanguageCode, () => Promise<{ FREQ: string }>>> = {
   ja: () => import("./ja"),
   ko: () => import("./ko"),
   zh: () => import("./zh"),
@@ -65,7 +89,11 @@ function parse(payload: string): FrequencyEntry[] {
 export async function loadFrequencyList(language: LanguageCode): Promise<FrequencyEntry[]> {
   const cached = CACHE.get(language);
   if (cached) return cached;
-  const mod = await LOADERS[language]();
+  // A signed language has no corpus. Returning an empty list keeps every caller
+  // honest — "no rank" rather than a rank that was never computed.
+  const loader = LOADERS[language];
+  if (!loader || !isSpoken(language)) return [];
+  const mod = await loader();
   const parsed = parse(mod.FREQ);
   CACHE.set(language, parsed);
   return parsed;
@@ -73,6 +101,7 @@ export async function loadFrequencyList(language: LanguageCode): Promise<Frequen
 
 /** Entries in the shipped list. Synchronous, for denominators. */
 export function frequencyListSize(language: LanguageCode): number {
+  if (!isSpoken(language)) return 0;
   return FREQUENCY_META[language]?.size ?? 0;
 }
 

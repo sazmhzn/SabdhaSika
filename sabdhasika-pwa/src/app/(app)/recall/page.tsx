@@ -486,7 +486,8 @@ export default function RecallPage() {
                   </p>
                 )}
 
-                {settings.pronunciationEnabled && (
+                {/* A signed language has no voice, so there is nothing to play. */}
+                {settings.pronunciationEnabled && language.bcp47 && (
                   <div className="mt-4">
                     <PronunciationButton
                       text={word.word}

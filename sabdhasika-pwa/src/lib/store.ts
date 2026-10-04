@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { createBackup, parseBackup } from "@/lib/backup";
 import { getVocabulary } from "@/lib/data";
 import { dayKey } from "@/lib/date";
 import { applyRating, createProgress } from "@/lib/engine/scheduler";
@@ -80,6 +81,13 @@ interface StoreState {
   clearMilestone: () => void;
   markMilestoneSeen: (milestone: number) => void;
   resetProgress: () => Promise<void>;
+  /** Save or unsave a word. Saved words are startable as a practice run. */
+  toggleBookmark: (wordId: string) => void;
+  clearBookmarks: () => void;
+  /** Serialize the durable state to a backup file's contents. */
+  exportBackup: () => string;
+  /** Replace the durable state from a backup file. Validates before writing. */
+  importBackup: (json: string) => { ok: true } | { ok: false; error: string };
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -383,6 +391,49 @@ export const useStore = create<StoreState>((set, get) => ({
     scheduleSave(next);
   },
 
+  toggleBookmark(wordId) {
+    const state = get().state;
+    const saved = state.bookmarks.includes(wordId);
+    const bookmarks = saved
+      ? state.bookmarks.filter((id) => id !== wordId)
+      : [...state.bookmarks, wordId];
+    const next: AppState = { ...state, bookmarks };
+    set({ state: next });
+    if (!saved) track("word_saved", { wordId });
+    scheduleSave(next);
+  },
+
+  clearBookmarks() {
+    const state = get().state;
+    if (state.bookmarks.length === 0) return;
+    const next: AppState = { ...state, bookmarks: [] };
+    set({ state: next });
+    scheduleSave(next);
+  },
+
+  exportBackup() {
+    const state = get().state;
+    const wordsMet = Object.values(state.progress).filter((p) => p.status !== "new").length;
+    track("backup_exported", { wordsMet });
+    return createBackup(state);
+  },
+
+  importBackup(json) {
+    const result = parseBackup(json);
+    if (!result.ok) return result;
+    const next = result.state;
+    set({
+      state: next,
+      reviewSession: null,
+      pendingMilestone: null,
+      history: [],
+      recallUndo: [],
+    });
+    saveNow(next);
+    track("backup_imported", { bookmarks: next.bookmarks.length });
+    return { ok: true };
+  },
+
   async resetProgress() {
     await clearState();
     const fresh = defaultState();
@@ -422,4 +473,12 @@ export function useSettings(): Settings {
 
 export function useTargetWords() {
   return useStore((s) => getVocabulary(s.state.settings.targetLanguage));
+}
+
+export function useBookmarks(): string[] {
+  return useStore((s) => s.state.bookmarks);
+}
+
+export function useIsBookmarked(wordId: string): boolean {
+  return useStore((s) => s.state.bookmarks.includes(wordId));
 }
