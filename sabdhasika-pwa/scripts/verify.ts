@@ -18,6 +18,7 @@ import { defaultState } from "@/lib/state";
 import type { AppState, DailySession, Rating } from "@/lib/types";
 import { checkWordHelpRoute } from "./word-help.check";
 import { checkAslTrack } from "./asl.check";
+import { checkSignRecognition } from "./sign.check";
 import { progress, v2State } from "./fixtures";
 
 let failures = 0;
@@ -554,6 +555,12 @@ section("ASL track");
 {
   await checkAslTrack(check);
 }
+
+/* ------------------------------------------------------------------ *
+ * 11. Fingerspelling recognition
+ * ------------------------------------------------------------------ */
+section("sign recognition");
+checkSignRecognition(check);
 
 console.log(`\n${failures === 0 ? "PASS" : "FAIL"} — ${checks - failures}/${checks} checks passed`);
 if (failures > 0) process.exit(1);

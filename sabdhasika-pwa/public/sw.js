@@ -13,7 +13,7 @@
  *   everything else  → passthrough (never cache opaque cross-origin)
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `sabdhasika-shell-${VERSION}`;
 const ASSET_CACHE = `sabdhasika-assets-${VERSION}`;
 
@@ -21,6 +21,7 @@ const SHELL_URLS = [
   "/",
   "/learn",
   "/session",
+  "/sign",
   "/review",
   "/progress",
   "/settings",
@@ -72,7 +73,11 @@ function isStaticAsset(url) {
   return (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
-    /\.(?:css|js|woff2?|png|jpg|jpeg|svg|webp|ico)$/.test(url.pathname)
+    // The hand model and its WASM runtime are large and immutable, so they are
+    // cached like any other build asset once fetched — which is what lets
+    // fingerspelling work with no signal after the first run.
+    url.pathname.startsWith("/vision/") ||
+    /\.(?:css|js|woff2?|png|jpg|jpeg|svg|webp|ico|wasm|task)$/.test(url.pathname)
   );
 }
 

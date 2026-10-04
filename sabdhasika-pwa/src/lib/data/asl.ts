@@ -80,7 +80,7 @@ export const FINGERSPELLING: Handshape[] = [
     symbol: "A",
     spokenName: "ay",
     cue: "Fist, thumb resting along the side",
-    hand: hand(0.15, 1, 1, 1, 1),
+    hand: hand(0.5, 0.15, 0.15, 0.15, 0.15),
     thumb: "alongside-index",
     check: "Fingertips touch the thumb in a clean fist, thumb outside the fingers.",
   },
