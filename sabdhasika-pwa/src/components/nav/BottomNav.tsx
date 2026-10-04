@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Brain, Layers, Settings2, TrendingUp } from "lucide-react";
+import { BookOpen, Brain, Hand, Layers, Settings2, TrendingUp } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { ArcNav, type ArcNavItem } from "@/components/nav/ArcNav";
@@ -8,6 +8,7 @@ import { ArcNav, type ArcNavItem } from "@/components/nav/ArcNav";
 export const NAV_ITEMS: readonly ArcNavItem[] = [
   { href: "/learn", label: "Learn", icon: BookOpen, hint: "Today's words" },
   { href: "/recall", label: "Recall", icon: Brain, hint: "Say it from memory" },
+  { href: "/sign", label: "Sign", icon: Hand, hint: "Read fingerspelling" },
   { href: "/review", label: "Review", icon: Layers, hint: "Words needing attention" },
   { href: "/progress", label: "Progress", icon: TrendingUp, hint: "How far you've come" },
   { href: "/settings", label: "Settings", icon: Settings2, hint: "Language and preferences" },

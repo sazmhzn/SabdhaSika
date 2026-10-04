@@ -1,7 +1,7 @@
 import { getVocabulary } from "@/lib/data";
 import { DAY_MS, dayKey } from "@/lib/date";
 import type { AppState, VocabularyWord, WordProgress } from "@/lib/types";
-import { isDue } from "./scheduler";
+import { forgettingSoon, isDue, retrievability } from "./scheduler";
 
 export interface ProgressStats {
   /** Every word the learner has met at least once. */
@@ -91,7 +91,7 @@ export function computeStats(state: AppState, now: Date = new Date()): ProgressS
  * Review buckets
  * ------------------------------------------------------------------ */
 
-export type ReviewBucketId = "due" | "difficult" | "forgotten" | "recent";
+export type ReviewBucketId = "slipping" | "due" | "difficult" | "forgotten" | "recent";
 
 export interface ReviewBucket {
   id: ReviewBucketId;
@@ -105,6 +105,14 @@ export function buildReviewBuckets(state: AppState, now: Date = new Date()): Rev
   const progress = state.progress;
   const weekAgo = now.getTime() - 7 * DAY_MS;
 
+  // Words the learner still believes they know but are about to lose. Only
+  // possible with a decay model — SM-2 could only report "due", so these words
+  // used to sit unnoticed until the day they had already decayed.
+  const slippingIds = new Set(
+    forgettingSoon(progress, now).map((p) => p.wordId),
+  );
+
+  const slipping: VocabularyWord[] = [];
   const due: VocabularyWord[] = [];
   const difficult: VocabularyWord[] = [];
   const forgotten: VocabularyWord[] = [];
@@ -113,6 +121,7 @@ export function buildReviewBuckets(state: AppState, now: Date = new Date()): Rev
   for (const w of vocab) {
     const p = progress[w.id];
     if (!p || p.status === "new") continue;
+    if (slippingIds.has(w.id)) slipping.push(w);
     if (isDue(p, now)) due.push(w);
     if (p.difficulty >= 0.6) difficult.push(w);
     if (p.lapses >= 2) forgotten.push(w);
@@ -124,6 +133,12 @@ export function buildReviewBuckets(state: AppState, now: Date = new Date()): Rev
     new Date(progress[a.id].nextReviewAt ?? 0).getTime() -
       new Date(progress[b.id].nextReviewAt ?? 0).getTime();
 
+  // Soonest to slip first — the whole reason this bucket leads.
+  const tomorrow = new Date(now.getTime() + DAY_MS);
+  slipping.sort(
+    (a, b) =>
+      retrievability(progress[a.id], tomorrow) - retrievability(progress[b.id], tomorrow),
+  );
   due.sort(byPressure);
   difficult.sort(byPressure);
   forgotten.sort((a, b) => progress[b.id].lapses - progress[a.id].lapses);
@@ -134,6 +149,12 @@ export function buildReviewBuckets(state: AppState, now: Date = new Date()): Rev
   );
 
   return [
+    {
+      id: "slipping",
+      label: "Slipping soon",
+      hint: "You know these, but not for much longer",
+      words: slipping,
+    },
     { id: "due", label: "Due today", hint: "Scheduled to come back", words: due },
     { id: "difficult", label: "Difficult", hint: "You rated these Hard", words: difficult },
     { id: "forgotten", label: "Slipped away", hint: "Missed more than once", words: forgotten },

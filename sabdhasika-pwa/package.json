@@ -4,12 +4,17 @@
   "private": true,
   "description": "SabdhaSika — learn the words that matter most. A frequency-based vocabulary PWA.",
   "scripts": {
+    "predev": "node scripts/fetch-vision-assets.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/fetch-vision-assets.mjs",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "npx --yes tsx scripts/verify.ts",
+    "sign:train": "node scripts/train-sign-model.mjs"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.0",
     "lucide-react": "^0.525.0",
@@ -21,10 +26,12 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "@tensorflow/tfjs": "^4.22.0",
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "tailwindcss": "^4.1.11",
-    "typescript": "^5.8.3"
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
   }
 }

@@ -25,7 +25,15 @@ export interface FrequencyMeta {
   file: string;
 }
 
-export const FREQUENCY_META: Record<LanguageCode, FrequencyMeta> = {
+/**
+ * Provenance for the languages that have a corpus list.
+ *
+ * Keyed by the spoken languages only, and partial on purpose: a signed language
+ * has no frequency list, so there is nothing to describe. Declaring it as
+ * `Record<LanguageCode, …>` would force a fabricated entry — a size of 0 and a
+ * made-up source — into a file the build generates and nobody reads.
+ */
+export const FREQUENCY_META: Partial<Record<LanguageCode, FrequencyMeta>> = {
   ja: {
     size: 3000,
     totalTokens: null,

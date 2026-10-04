@@ -1,20 +1,26 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, CornerDownLeft, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, CornerDownLeft, HelpCircle, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PronunciationButton } from "@/components/learn/PronunciationButton";
 import { ChoiceOptions, TypeAnswer } from "@/components/learn/RecallInput";
+import { SpeakButton, spokenAnswerQuality } from "@/components/learn/SpeakButton";
+import { HandShapeDiagram } from "@/components/sign/HandShapeDiagram";
 import { RatingBar, RATING_FROM_KEY } from "@/components/learn/RatingBar";
 import { Kbd } from "@/components/ui/Kbd";
 import { sfx } from "@/lib/audio";
+import { useWordHelp } from "@/lib/ai/useWordHelp";
 import { cn } from "@/lib/cn";
 import { resolveMeaning } from "@/lib/data";
+import { handshapeFor } from "@/lib/data/asl";
 import { buildChoices, checkTypedAnswer, isTypingTarget } from "@/lib/engine/quiz";
 import { statusLabel } from "@/lib/engine/scheduler";
 import { haptics } from "@/lib/haptics";
+import { startListening, type ListeningSession } from "@/lib/speech-input";
 import { heroFontSize, isRtl } from "@/lib/romanization";
 import type { LanguageMeta } from "@/lib/languages";
+import { getNativeLanguage } from "@/lib/languages";
 import type {
   NativeLanguageCode,
   Rating,
@@ -90,29 +96,76 @@ export function Flashcard({
   const [revealed, setRevealed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
+  // Speech input.
+  const [listening, setListening] = useState(false);
+  const [spokenPartial, setSpokenPartial] = useState("");
+  const [spokenQuality, setSpokenQuality] = useState<"exact" | "near" | "miss" | null>(null);
+  const [heard, setHeard] = useState("");
+  const listenRef = useRef<ListeningSession | null>(null);
+  const help = useWordHelp();
+
+  // Help belongs to the word that was asked about. Carrying it to the next
+  // card would answer a question nobody asked.
+  useEffect(() => help.reset(), [help.reset, word.id]);
 
   const choices = useMemo(
-    () => (mode === "choice" ? buildChoices(word, vocabulary, nativeLanguage, 4) : []),
+    () => (mode === "choice" || mode === "listen" ? buildChoices(word, vocabulary, nativeLanguage, 4) : []),
     [mode, word, vocabulary, nativeLanguage],
   );
 
-  const answered = mode === "reveal" ? revealed : mode === "choice" ? selectedId !== null : false;
+  // Every form the spoken answer may legitimately take. Reuses exactly the
+  // rules typing already accepts, so a word spoken in its romanization is as
+  // acceptable as one typed that way.
+  const acceptedForms = useMemo(
+    () =>
+      [word.word, word.reading, word.romanized, meaning].filter(Boolean) as string[],
+    [meaning, word.reading, word.romanized, word.word],
+  );
+
+  const isListeningMode = mode === "listen";
+  const isSpeakingMode = mode === "speak";
+
+  /**
+   * A signed language has no voice, so every speech feature on this card is
+   * switched off rather than rendered as a control that cannot work: no
+   * pronunciation button, no auto-play, no Listen mode, no microphone.
+   */
+  const isSigned = language.modality === "signed";
+  const bcp47 = language.bcp47 ?? "";
+  const canSpeak = !isSigned && pronunciationEnabled;
+  // Only a sign track has a handshape to draw; a spoken word has none.
+  const handshape = isSigned ? handshapeFor(word.word) : undefined;
+
+  /**
+   * A Listen card hides the word and asks the learner to recognise audio. With
+   * no audio available there is nothing to listen to, which makes the card
+   * unanswerable — so it degrades to an ordinary reveal card rather than
+   * presenting something the learner cannot possibly do.
+   */
+  const listenUnusable = isListeningMode && !canSpeak;
+  const asReveal = mode === "reveal" || listenUnusable;
+
+  const answered = asReveal
+    ? revealed
+    : mode === "choice" || isListeningMode
+      ? selectedId !== null
+      : mode === "type"
+        ? typed.trim().length > 0
+        : spokenQuality !== null;
+
   const typedCorrect =
     mode === "type" && typed.trim() ? checkTypedAnswer(typed, word, nativeLanguage) : null;
 
-  const phase: "prompt" | "answer" =
-    mode === "reveal"
-      ? revealed
-        ? "answer"
-        : "prompt"
-      : mode === "choice"
-        ? selectedId
-          ? "answer"
-          : "prompt"
-        : "prompt"; // "type" stays in prompt until the learner submits and rates
+  const phase: "prompt" | "answer" = answered ? "answer" : "prompt";
 
   const wasCorrect =
-    mode === "choice" ? selectedId === word.id : mode === "type" ? typedCorrect === true : true;
+    mode === "choice"
+      ? selectedId === word.id
+      : mode === "type"
+        ? typedCorrect === true
+        : isListeningMode
+          ? selectedId === word.id
+          : spokenQuality === "exact" || spokenQuality === "near";
 
   /* ---------------------------------------------------------------- *
    * Actions
@@ -144,6 +197,66 @@ export function Flashcard({
     onAnswer?.(correct);
   }, [hapticsEnabled, nativeLanguage, onAnswer, typed, word]);
 
+  /* ---------------------------------------------------------------- *
+   * Speech input.
+   * ---------------------------------------------------------------- */
+
+  const stopListening = useCallback(() => {
+    listenRef.current?.stop();
+    listenRef.current = null;
+    setListening(false);
+  }, []);
+
+  // A recogniser left running after the card is gone would keep the microphone
+  // open on the next one, so it is stopped on unmount and whenever the word
+  // changes.
+  useEffect(() => stopListening, [stopListening, word.id]);
+
+  const beginListening = useCallback((): ListeningSession | null => {
+    // A signed language has no voice to recognise against, so there is nothing
+    // for a microphone to do here.
+    if (!bcp47) return null;
+    const session = startListening(bcp47, {
+      onPartial: (text) => setSpokenPartial(text),
+      onFinal: (transcript) => {
+        setListening(false);
+        setHeard(transcript);
+        const quality = spokenAnswerQuality(transcript, acceptedForms);
+        setSpokenQuality(quality);
+        const good = quality !== "miss";
+        haptics[good ? "correct" : "incorrect"](hapticsEnabled);
+        sfx[good ? "correct" : "incorrect"]();
+        onAnswer?.(good);
+      },
+      onError: () => {
+        setListening(false);
+        setSpokenPartial("");
+        // A failed microphone is not a wrong answer. Report the card as
+        // correct-but-unrated so the learner is never told they got it wrong
+        // because the device refused to listen.
+        setSpokenQuality(null);
+        setSpokenPartial("");
+        setHeard("");
+      },
+    });
+    if (session) {
+      listenRef.current = session;
+      setListening(true);
+    }
+    return session;
+  }, [acceptedForms, hapticsEnabled, bcp47, onAnswer]);
+
+  // Listening mode plays the word instead of showing it. Auto-plays once the
+  // card is on screen, and can be replayed — a learner who did not catch it
+  // must be able to hear it again, or the question is unanswerable.
+  useEffect(() => {
+    if (!isListeningMode || !canSpeak) return;
+    const t = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("sabdhasika:speak", { detail: word.word }));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [isListeningMode, pronunciationEnabled, word.word]);
+
   const rate = useCallback(
     (rating: Rating) => {
       haptics.tick(hapticsEnabled);
@@ -159,9 +272,13 @@ export function Flashcard({
    * ---------------------------------------------------------------- */
   const ratingVisible =
     !firstExposure &&
-    ((mode === "reveal" && revealed) ||
-      (mode === "choice" && selectedId !== null) ||
-      (mode === "type" && typedCorrect !== null));
+    (asReveal
+      ? revealed
+      : mode === "choice" || isListeningMode
+        ? selectedId !== null
+        : mode === "type"
+          ? typedCorrect !== null
+          : spokenQuality !== null);
 
   const continueVisible = firstExposure && phase === "answer";
 
@@ -185,7 +302,7 @@ export function Flashcard({
       }
 
       if (phase === "prompt" && (e.key === " " || e.key === "Enter")) {
-        if (mode === "reveal") {
+        if (asReveal) {
           e.preventDefault();
           reveal();
         }
@@ -193,13 +310,13 @@ export function Flashcard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [continueVisible, mode, phase, rate, ratingVisible, reveal]);
+  }, [asReveal, continueVisible, mode, phase, rate, ratingVisible, reveal]);
 
   /* ---------------------------------------------------------------- *
    * Auto-play: only ever after the card is on screen, never mid-transition.
    * ---------------------------------------------------------------- */
   useEffect(() => {
-    if (!autoPlay || !pronunciationEnabled) return;
+    if (!autoPlay || !canSpeak) return;
     const t = setTimeout(() => {
       window.dispatchEvent(new CustomEvent("sabdhasika:speak", { detail: word.word }));
     }, 320);
@@ -210,7 +327,21 @@ export function Flashcard({
    * Suggested rating: a nudge, never an auto-submit.
    * ---------------------------------------------------------------- */
   const suggested: Rating | null =
-    mode === "choice" ? (wasCorrect ? "good" : "hard") : mode === "type" ? (typedCorrect ? "easy" : "hard") : null;
+    mode === "choice" || isListeningMode
+      ? wasCorrect
+        ? "good"
+        : "hard"
+      : mode === "type"
+        ? typedCorrect
+          ? "easy"
+          : "hard"
+        : isSpeakingMode && spokenQuality !== null
+          ? spokenQuality === "miss"
+            ? "hard"
+            : spokenQuality === "exact"
+              ? "easy"
+              : "good"
+          : null;
 
   const status = progress?.status ?? "new";
   const showScript = hasRomanizationData(word);
@@ -223,15 +354,20 @@ export function Flashcard({
       className={cn(
         "surface-card grain relative isolate flex w-full flex-col overflow-hidden",
         "min-h-[min(66svh,540px)]",
-        mode === "reveal" && phase === "prompt" && "cursor-pointer",
+        asReveal && phase === "prompt" && "cursor-pointer",
       )}
-      onClick={mode === "reveal" && phase === "prompt" ? reveal : undefined}
+      onClick={asReveal && phase === "prompt" ? reveal : undefined}
     >
       {/* ── meta row ─────────────────────────────────────────────── */}
       <header className="relative z-10 flex items-center justify-between gap-3 px-5 pt-4">
         <div className="flex items-center gap-2">
+          {/* The corpus position, or the teaching position on a sign track.
+              Showing "No. 0" on a signed card would report a rank that was
+              never computed, so the two are labelled differently. */}
           <span className="rounded-full border border-line bg-paper/70 px-3 py-1 text-[11px] font-semibold text-muted tabular-nums">
-            No. {word.frequencyRank}
+            {isSigned
+              ? `Step ${word.syllabusOrdinal ?? 1}`
+              : `No. ${word.frequencyRank}`}
           </span>
           {word.partOfSpeech && (
             <span className="hidden rounded-full border border-line bg-paper/70 px-3 py-1 text-[11px] font-medium text-muted sm:inline">
@@ -293,6 +429,32 @@ export function Flashcard({
                 {meaning}
               </h2>
             </>
+          ) : isListeningMode ? (
+            /* Perception direction: the word is audio only. Showing it would
+               answer the question before it was asked. */
+            <div className="flex flex-col items-center gap-4">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-faint">
+                What did you hear?
+              </span>
+              <PronunciationButton
+                text={word.word}
+                bcp47={bcp47}
+                hapticsEnabled={hapticsEnabled}
+                size="lg"
+              />
+            </div>
+          ) : isSigned && handshape ? (
+            /* A sign is the word. The letter is shown large, with the handshape
+               drawn beside it as a labelled diagram. */
+            <div className="flex flex-col items-center gap-4">
+              <h2 className="font-extrabold leading-none tracking-[-0.03em] text-ink text-[clamp(3rem,14vw,5rem)]">
+                {word.word}
+              </h2>
+              <HandShapeDiagram handshape={handshape} size="lg" animate />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-faint">
+                American Sign Language
+              </p>
+            </div>
           ) : (
             <>
               <h2
@@ -324,7 +486,7 @@ export function Flashcard({
       {/* ── interaction / answer ─────────────────────────────────── */}
       <div className="relative z-10 px-5 pb-5">
         <AnimatePresence mode="wait" initial={false}>
-          {mode === "reveal" && phase === "prompt" && (
+          {asReveal && phase === "prompt" && (
             <motion.div
               key="tap"
               initial={{ opacity: 0 }}
@@ -385,6 +547,47 @@ export function Flashcard({
             </motion.div>
           )}
 
+          {isListeningMode && !listenUnusable && phase === "prompt" && (
+            <motion.div
+              key="listen"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={SOFT}
+            >
+              <p className="mb-3 text-center text-[12px] font-medium text-muted">
+                Listen, then choose what you heard
+              </p>
+              <ChoiceOptions
+                choices={choices}
+                correctId={word.id}
+                selectedId={selectedId}
+                onSelect={choose}
+              />
+            </motion.div>
+          )}
+
+          {isSpeakingMode && phase === "prompt" && (
+            <motion.div
+              key="speak"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={SOFT}
+            >
+              <SpeakButton
+                bcp47={bcp47}
+                partial={spokenPartial}
+                listening={listening}
+                hapticsEnabled={hapticsEnabled}
+                onStart={beginListening}
+                onPartial={setSpokenPartial}
+                onFinal={() => {}}
+                onUnavailable={() => setSpokenPartial("")}
+              />
+            </motion.div>
+          )}
+
           {phase === "answer" && (
             <motion.div
               key="answer"
@@ -404,14 +607,40 @@ export function Flashcard({
               </div>
 
               {/* pronunciation */}
-              {pronunciationEnabled && (
+              {canSpeak && (
                 <div className="flex justify-center">
                   <PronunciationButton
                     text={word.word}
-                    bcp47={language.bcp47}
+                    bcp47={bcp47}
                     hint={word.pronunciation}
                     hapticsEnabled={hapticsEnabled}
                   />
+                </div>
+              )}
+
+{/* What the recogniser heard, and how close it landed. Shown on the answer
+                  side because a learner who said the right word should see that
+                  their pronunciation was accepted — otherwise the interaction
+                  feels like it is grading them on something invisible. */}
+              {isSpeakingMode && spokenQuality !== null && (
+                <div
+                  className="rounded-panel border border-line bg-paper/60 p-4 text-center"
+                  role="status"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">
+                    Heard
+                  </p>
+                  <p
+                    lang={word.language}
+                    className="mt-1.5 text-[15px] font-semibold text-ink-soft"
+                  >
+                    {heard}
+                  </p>
+                  <p className="mt-2 text-[12.5px] text-muted">
+                    {spokenQuality === "exact" && "Close enough — that counts."}
+                    {spokenQuality === "near" && "We read that as the word. Good."}
+                    {spokenQuality === "miss" && "We couldn't match that to the word."}
+                  </p>
                 </div>
               )}
 
@@ -486,6 +715,59 @@ export function Flashcard({
                 </div>
               ) : (
                 <RatingBar onRate={rate} suggested={suggested} showHints={showHints} />
+              )}
+
+              {/* Word Help. Only ever shown when the word is genuinely confusing
+                  — a question the learner asked — and it appears above the
+                  rating row, because the next action after being confused is to
+                  understand, not to score yourself. */}
+              {!firstExposure && help.help === null && (
+                <div className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      help.ask(word, meaning, {
+                        targetLanguage: language.code,
+                        targetLanguageName: language.name,
+                        nativeLanguage,
+                        nativeLanguageName: getNativeLanguage(nativeLanguage)?.name ?? "English",
+                      })
+                    }
+                    disabled={help.loading}
+                    className="press chrome-noselect inline-flex items-center gap-1.5 rounded-chip px-3 py-2 text-[12.5px] font-semibold text-faint hover:text-ink disabled:opacity-50"
+                  >
+                    <HelpCircle className="size-3.5" strokeWidth={2.2} />
+                    {help.loading ? "Thinking…" : help.failed ? "Try again" : "Stuck?"}
+                  </button>
+                </div>
+              )}
+
+              {help.help && (
+                <div
+                  className="rounded-panel border border-line bg-paper/60 p-4"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">
+                    In short
+                  </p>
+                  <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-soft">
+                    {help.help.explanation}
+                  </p>
+                  {help.help.usageNote && (
+                    <p className="mt-2.5 text-[12.5px] leading-relaxed text-muted">
+                      {help.help.usageNote}
+                    </p>
+                  )}
+                  {help.help.extraExamples.map((ex, i) => (
+                    <div key={i} className="mt-3 border-t border-line pt-3">
+                      <p lang={word.language} className="text-[13.5px] font-semibold text-ink">
+                        {ex.native}
+                      </p>
+                      <p className="mt-0.5 text-[12.5px] text-muted">{ex.translation}</p>
+                    </div>
+                  ))}
+                </div>
               )}
             </motion.div>
           )}
