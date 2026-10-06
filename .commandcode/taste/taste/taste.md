@@ -6,3 +6,8 @@
 - Usually accepts the agent's recommended option when a recommendation is given, rather than debating alternatives — so a clear, opinionated recommendation is the most useful form of a question. Confidence: 0.5
 - Prefers solving ML/algorithmic problems with real, established tooling (Python, mainstream JS ML packages like TensorFlow.js) over hand-rolled or synthetic/self-referential approaches that fabricate data from existing content. Confidence: 0.6
 - Prefers new, purpose-built components over repurposing/adapting existing UI components as scaffolding for a new feature. Confidence: 0.4
+- Describes tasks in rough, conversational terms and mixes up adjacent concepts (called an ASL video dataset "what the user is saying") — expects the agent to inspect the actual data/code and infer the correct interpretation instead of asking clarifying questions. Confidence: 0.5
+- Adds datasets/models into an existing project and asks the agent to "train it", i.e. expects full end-to-end pipelines (data → training → inference wired into the app) rather than stubs or mocked results. Confidence: 0.5
+- Works in an IDE and triggers work by pointing at the currently open file, expecting the agent to locate and read it plus the surrounding project structure. Confidence: 0.5
+- Is building under a competition/hackathon-style credit-point scheme and weighs implementation choices by whether they "take" credit points — expects the agent to flag when an approach might lose credit, and to hunt the repo for the actual rules (or say plainly when they don't exist) instead of guessing. Confidence: 0.6
+- Leans toward free/open-source models and local inference rather than paid hosted APIs, for cost and evaluation reasons. Confidence: 0.45

@@ -88,7 +88,17 @@ export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
   }, [hydrated, account]);
 
   /* The single redirect rule. See the note above. */
-  const destination = useMemo(() => safeNext(next), [next]);
+  const destination = useMemo(() => {
+    if (next) return safeNext(next);
+    // A fresh registration lands in onboarding, not on Learn: Learn would
+    // bounce straight back here via RequireOnboarding, flashing the wrong
+    // screen and paying for a full progress hydration that gets thrown away.
+    // The localStorage mirror is read synchronously so the marketing tree
+    // never has to hydrate the learning store to decide this. Re-registering
+    // on an already-onboarded device still lands on Learn.
+    if (isRegister && !alreadyOnboarded()) return "/onboarding";
+    return "/learn";
+  }, [isRegister, next]);
   useEffect(() => {
     if (!hydrated || !session) return;
     router.replace(destination);
@@ -328,6 +338,26 @@ export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
 /* ------------------------------------------------------------------ *
  * Field scaffolding
  * ------------------------------------------------------------------ */
+
+/**
+ * Synchronous, hydration-free answer to "has this device finished onboarding?".
+ *
+ * The learning store mirrors every save to localStorage under this key (see
+ * `persistence.ts`), so the marketing tree — which deliberately never hydrates
+ * that store — can still route a fresh registration to `/onboarding` without
+ * waiting on IndexedDB. Stale or corrupt data fails closed to "not onboarded":
+ * the worst case is one extra onboarding pass, never a stranded learner.
+ */
+function alreadyOnboarded(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    const raw = localStorage.getItem("sabdhasika:app-state");
+    if (!raw) return false;
+    return Boolean((JSON.parse(raw) as { onboardedAt?: unknown }).onboardedAt);
+  } catch {
+    return false;
+  }
+}
 
 function inputClasses(invalid: boolean): string {
   return cn(
