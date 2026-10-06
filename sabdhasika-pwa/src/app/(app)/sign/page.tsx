@@ -91,9 +91,17 @@ export default function SignPage() {
         eyebrow="American Sign Language"
         title="Fingerspelling"
         trailing={
-          <Link href="/sign/record" className="press text-[12.5px] font-semibold text-muted hover:text-ink">
-            Add samples
-          </Link>
+          <span className="flex items-center gap-4">
+            <Link href="/sign/chat" className="press text-[12.5px] font-semibold text-muted hover:text-ink">
+              Conversation
+            </Link>
+            <Link href="/sign/practice" className="press text-[12.5px] font-semibold text-muted hover:text-ink">
+              Practice
+            </Link>
+            <Link href="/sign/record" className="press text-[12.5px] font-semibold text-muted hover:text-ink">
+              Add samples
+            </Link>
+          </span>
         }
       />
 

@@ -13,5 +13,15 @@ tsconfig.tsbuildinfo
 # MediaPipe hand-landmarker WASM + model, fetched by scripts/fetch-vision-assets.mjs
 public/vision/
 
+# Word-sign reference clips, copied locally from repo-root SL/ by scripts/build-sl-index.mjs
+public/sign-clips/
+public/word-clips.json
+/SL
+
 # Captured training samples, exported from /sign/record
 scripts/data/
+
+# Playwright e2e artefacts
+test-results/
+playwright-report/
+playwright/.auth/

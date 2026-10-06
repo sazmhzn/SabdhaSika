@@ -19,6 +19,9 @@ import type { AppState, DailySession, Rating } from "@/lib/types";
 import { checkWordHelpRoute } from "./word-help.check";
 import { checkAslTrack } from "./asl.check";
 import { checkSignRecognition } from "./sign.check";
+import { checkWordDtw } from "./word-dtw.check";
+import { checkSlTemplates } from "./sl-templates.check";
+import { checkWordModel } from "./word-model.check";
 import { progress, v2State } from "./fixtures";
 
 let failures = 0;
@@ -561,6 +564,24 @@ section("ASL track");
  * ------------------------------------------------------------------ */
 section("sign recognition");
 checkSignRecognition(check);
+
+/* ------------------------------------------------------------------ *
+ * 12. Word-sign DTW scorer
+ * ------------------------------------------------------------------ */
+section("word-sign dtw");
+checkWordDtw(check);
+
+/* ------------------------------------------------------------------ *
+ * 13. SL-derived word templates
+ * ------------------------------------------------------------------ */
+section("sl templates");
+checkSlTemplates(check);
+
+/* ------------------------------------------------------------------ *
+ * 14. Word-sign LSTM classifier
+ * ------------------------------------------------------------------ */
+section("word model");
+checkWordModel(check);
 
 console.log(`\n${failures === 0 ? "PASS" : "FAIL"} — ${checks - failures}/${checks} checks passed`);
 if (failures > 0) process.exit(1);

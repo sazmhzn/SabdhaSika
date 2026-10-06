@@ -11,7 +11,10 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "verify": "npx --yes tsx scripts/verify.ts",
-    "sign:train": "node scripts/train-sign-model.mjs"
+    "test:e2e": "playwright test",
+    "test:e2e:chromium": "playwright test --project=chromium",
+    "sign:train": "node scripts/train-sign-model.mjs",
+    "words:train": "node scripts/train-word-model.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
@@ -25,6 +28,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@tensorflow/tfjs": "^4.22.0",
     "@types/node": "^22.15.0",
