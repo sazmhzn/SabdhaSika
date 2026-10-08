@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { FrequencyField } from "@/components/marketing/FrequencyField";
+import { PrimaryCta } from "@/components/marketing/PrimaryCta";
 import { marketingButtonClasses } from "@/components/ui/button-classes";
 import { useAccountStore } from "@/lib/account-store";
 import {
@@ -70,16 +71,20 @@ export function ClosingCta() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               {signedIn ? (
-                <Link href="/learn" className={marketingButtonClasses({ size: "lg" })}>
-                  Open the app
-                  <ArrowRight className="size-4" strokeWidth={2} />
-                </Link>
+                <PrimaryCta
+                  href="/learn"
+                  size="lg"
+                  label="Open the app"
+                  icon={<ArrowRight className="size-4" strokeWidth={2} />}
+                />
               ) : (
                 <>
-                  <Link href="/register" className={marketingButtonClasses({ size: "lg" })}>
-                    Create an account
-                    <ArrowRight className="size-4" strokeWidth={2} />
-                  </Link>
+                  <PrimaryCta
+                    href="/register"
+                    size="lg"
+                    label="Create an account"
+                    icon={<ArrowRight className="size-4" strokeWidth={2} />}
+                  />
                   <Link
                     href="/signin"
                     className={marketingButtonClasses({ variant: "secondary", size: "lg" })}

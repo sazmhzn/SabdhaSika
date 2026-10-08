@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState } from "react";
 import { safeNext } from "@/components/providers/RequireAccount";
-import { marketingButtonClasses } from "@/components/ui/button-classes";
+import { PrimaryCta } from "@/components/marketing/PrimaryCta";
 import {
   passwordStrength,
   validateDisplayName,
@@ -293,24 +293,22 @@ export function AuthForm({ mode, next }: { mode: AuthMode; next?: string }) {
         </p>
       )}
 
-      <button
+      <PrimaryCta
         type="submit"
         disabled={busy}
-        aria-busy={busy}
-        className={marketingButtonClasses({ size: "lg", full: true, className: "mt-7" })}
-      >
-        {busy ? (
-          <>
+        busy={busy}
+        size="lg"
+        full
+        className="mt-7"
+        label={busy ? (isRegister ? "Creating your account" : "Signing you in") : isRegister ? "Create account" : "Sign in"}
+        icon={
+          busy ? (
             <Loader2 className="size-4 animate-spin" strokeWidth={2} />
-            {isRegister ? "Creating your account" : "Signing you in"}
-          </>
-        ) : (
-          <>
-            {isRegister ? "Create account" : "Sign in"}
+          ) : (
             <ArrowRight className="size-4" strokeWidth={2} />
-          </>
-        )}
-      </button>
+          )
+        }
+      />
 
       <p className="mt-5 text-center text-[13px] text-fog">
         {isRegister ? "Already have an account on this device? " : "New here? "}

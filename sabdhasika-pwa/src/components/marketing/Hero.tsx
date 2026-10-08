@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, Lock, Volume2 } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { marketingButtonClasses } from "@/components/ui/button-classes";
+import { HeroStack } from "@/components/marketing/HeroStack";
+import { PrimaryCta } from "@/components/marketing/PrimaryCta";
 import { japanese } from "@/lib/data/japanese";
 import {
   COUNTED_LANGUAGE_COUNT,
@@ -22,18 +24,27 @@ import { getLanguage } from "@/lib/languages";
  * JavaScript still loading. The entrance is a CSS animation (`animate-rise`)
  * rather than a motion library, for the same reason.
  *
- * ── Why the demo word is chosen by rule ─────────────────────────────
+ * ── Why the demo words are chosen by rule ───────────────────────────
  *
- * Hand-picking a word would be a claim the dataset does not back the moment
+ * Hand-picking words would be a claim the dataset does not back the moment
  * the list is rebuilt — the same failure that had Nepali advertising a 2,000
- * word list against a real one of 3,000. So the rule is "the highest-frequency
- * word that actually carries an example sentence", with a fallback chain that
- * always terminates. Today it resolves to `する` at rank 19.
+ * word list against a real one of 3,000. So the rule is "the five
+ * highest-frequency words that actually carry an example sentence", with a
+ * fallback chain that always terminates. Today the top card resolves to
+ * `する` at rank 19.
  *
  * Japanese is the language used because it is the hardest case: a non-Latin
  * script with a reading layer, which is what the app was built for. The card
  * shows the romanization because a visitor who cannot read kana still has to
  * be able to tell what the product does.
+ *
+ * ── Why the stack is a client island ─────────────────────────────────
+ *
+ * Everything else on this page is static HTML. The dropping stack needs
+ * pointer input and GSAP, so only the stack itself (`<HeroStack>`) is a
+ * client component — it renders the same card markup on the server first,
+ * then hydrates the drag/click/keyboard motion. Drops are visual-only here:
+ * the deck loops and nothing is recorded.
  *
  * ── The type does the emphasis, not an accent colour ────────────────
  *
@@ -44,16 +55,21 @@ import { getLanguage } from "@/lib/languages";
  * stops being an accent. Dimming the surroundings achieves the same emphasis
  * and costs nothing.
  */
-const DEMO =
-  japanese.find((w) => w.example && w.frequencyRank <= 100) ??
-  japanese.find((w) => w.example) ??
-  japanese[0];
+const TOP_WITH_EXAMPLE = japanese.filter((w) => w.example && w.frequencyRank <= 100);
+const ANY_WITH_EXAMPLE = japanese.filter((w) => w.example);
+const DECK = (
+  TOP_WITH_EXAMPLE.length >= 3
+    ? TOP_WITH_EXAMPLE
+    : ANY_WITH_EXAMPLE.length >= 3
+      ? ANY_WITH_EXAMPLE
+      : japanese
+).slice(0, 5);
 
 export function Hero() {
   const language = getLanguage("ja");
 
   return (
-    <section className="relative">
+    <section className="relative overflow-x-clip">
       <div className="relative mx-auto grid w-full max-w-[1200px] gap-16 px-6 pb-20 pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-20 lg:pb-24 lg:pt-24">
         {/* ── the pitch ─────────────────────────────────────────────── */}
         <div>
@@ -89,10 +105,12 @@ export function Hero() {
             className="animate-rise mt-9 flex flex-wrap items-center gap-3"
             style={{ animationDelay: "180ms" }}
           >
-            <Link href="/register" className={marketingButtonClasses({ size: "lg" })}>
-              Start learning
-              <ArrowRight className="size-4" strokeWidth={2} />
-            </Link>
+            <PrimaryCta
+              href="/register"
+              size="lg"
+              label="Start learning"
+              icon={<ArrowRight className="size-4" strokeWidth={2} />}
+            />
             <Link
               href="/signin"
               className={marketingButtonClasses({ variant: "secondary", size: "lg" })}
@@ -115,7 +133,7 @@ export function Hero() {
 
         {/* ── the actual product, as it is ──────────────────────────── */}
         <div className="animate-rise relative" style={{ animationDelay: "150ms" }}>
-          <FlashcardDemo />
+          <HeroStack words={DECK} />
 
           {/* The claim, sitting next to the thing that demonstrates it. */}
           <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-[440px]">
@@ -146,67 +164,5 @@ export function Hero() {
         </div>
       </div>
     </section>
-  );
-}
-
-/**
- * The card, built from the real dataset.
- *
- * Deliberately a *flashcard* rather than a marketing illustration: the rank,
- * the part of speech, the reading layer and the example sentence are the four
- * things a learner sees on every card in the app. Showing anything else here
- * would be a promise the product does not keep.
- */
-function FlashcardDemo() {
-  const word = DEMO;
-  const example = word.example;
-
-  return (
-    <div className="rounded-mkt border border-graphite bg-carbon p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)] lg:p-7">
-      {/* header: where this word sits in the list, and what it is */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <span className="rounded-mkt-xs border border-graphite bg-obsidian px-2 py-0.5 text-[11px] font-[510] text-mist tabular-nums">
-            #{word.frequencyRank}
-          </span>
-          {word.partOfSpeech && (
-            <span className="text-[11px] font-[510] uppercase tracking-[0.14em] text-ash">
-              {word.partOfSpeech}
-            </span>
-          )}
-        </div>
-        <span
-          className="grid size-8 shrink-0 place-items-center rounded-full border border-graphite bg-obsidian text-fog"
-          aria-hidden="true"
-        >
-          <Volume2 className="size-3.5" strokeWidth={2} />
-        </span>
-      </div>
-
-      {/* the word itself */}
-      <p className="mt-7 text-[clamp(3rem,9vw,3.75rem)] font-[510] leading-none tracking-[-0.03em] text-white">
-        {word.word}
-      </p>
-      {word.romanized && <p className="mt-2.5 text-[18px] text-fog">{word.romanized}</p>}
-
-      <div className="my-6 h-px w-full bg-graphite" />
-
-      {/* the meaning, then the sentence it lives in */}
-      <p className="text-[16.5px] font-[510] text-bone">{word.meaning}</p>
-
-      {example && (
-        <div className="mt-4">
-          <p className="text-[15px] leading-relaxed text-mist">{example.native}</p>
-          {example.romanized && <p className="mt-1 text-[13px] text-ash">{example.romanized}</p>}
-          <p className="mt-2 text-[13px] text-fog">{example.translation}</p>
-        </div>
-      )}
-
-      {/* the honest footnote: this is a real entry, and here is its evidence */}
-      <p className="mt-6 text-[11px] leading-relaxed text-ash">
-        Rank {word.frequencyRank} of 3,000, from the shipped Japanese corpus list
-        {word.frequency ? ` — ${word.frequency.toLocaleString()} occurrences` : ""}.
-      </p>
-    </div>
   );
 }
