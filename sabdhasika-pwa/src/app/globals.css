@@ -805,3 +805,66 @@
   .accordion-css__item-icon {
   transform: rotate(180deg);
 }
+
+/**
+ * The hero dropping stack (Osmo "Dropping Cards Stack", adapted).
+ *
+ * Layout and motion are the resource's: the collection padding builds the
+ * per-card offset (padding ÷ 3 with four cards visible), items stack by
+ * absolute positioning off the first card, and GSAP owns every transform.
+ * Only the skin changed — the card face is the existing flashcard markup, and
+ * the controls use the marketing tokens (acid next, graphite prev) instead
+ * of Osmo's palette. Until the client island goes live (`data-stack-live`),
+ * cards 2+ stay hidden so the server paint is a single static card.
+ */
+[data-surface="marketing"] .dropping-stack {
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  gap: 2em;
+  width: 100%;
+}
+
+[data-surface="marketing"] .dropping-stack__collection {
+  width: 100%;
+  padding-bottom: 3em;
+  padding-right: 3em;
+}
+
+[data-surface="marketing"] .dropping-stack__list {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+[data-surface="marketing"] .dropping-stack__item {
+  will-change: transform, opacity;
+  -webkit-user-select: none;
+  user-select: none;
+  position: absolute;
+  width: 100%;
+}
+
+[data-surface="marketing"] .dropping-stack__item:nth-child(1) {
+  position: relative;
+}
+
+[data-surface="marketing"] .dropping-stack__item:nth-child(n + 2) {
+  display: none;
+}
+
+[data-surface="marketing"] .dropping-stack[data-stack-live="true"] .dropping-stack__item:nth-child(n + 2) {
+  display: block;
+}
+
+[data-surface="marketing"] .dropping-stack[data-stack-live="true"] .dropping-stack__item {
+  cursor: grab;
+}
+
+@media screen and (max-width: 767px) {
+  [data-surface="marketing"] .dropping-stack__collection {
+    padding-bottom: 2em;
+    padding-right: 2em;
+  }
+}
