@@ -868,3 +868,203 @@
     padding-right: 2em;
   }
 }
+
+/**
+ * The primary button (Osmo "Button 023", adapted).
+ *
+ * Motion is the resource's verbatim: a two-layer diagonal background sweeps
+ * up while the label rolls over to a second copy. Only the skin changed, via
+ * the resource's own scoped-variable mechanism — acid rest state, a signal
+ * mid-layer (8.29:1 against the outgoing void text), an obsidian end state
+ * with bone text (14.26:1), and the marketing 6px radius and heights so it
+ * still lines up with the secondary button beside it. Secondary, ghost and
+ * all app buttons are untouched: lime means the primary action on the
+ * screen, and only the primary action.
+ */
+[data-surface="marketing"] .button-023 {
+  --button-023-color: var(--mkt-void);
+  --button-023-color-background: var(--mkt-acid);
+  --button-023-hover-color: var(--mkt-bone);
+  --button-023-between-color-background: var(--mkt-signal);
+  --button-023-hover-color-background: var(--mkt-obsidian);
+  --button-023-color-focus: var(--mkt-acid);
+  --button-023-focus-inset: -0.125em;
+  --button-023-padding: 0 1em;
+  --button-023-border-radius: 6px;
+  --button-023-click-scale: 0.955 0.925;
+  --button-023-hover-scale: 1.065 1.095;
+  --button-023-ease-click: cubic-bezier(0.4, 0, 0.2, 1);
+  --button-023-ease-hover: linear(0, 0.5737 7.6%, 0.8382 11.87%, 0.9463 14.19%, 1.0292 16.54%, 1.0886 18.97%, 1.1258 21.53%, 1.137 22.97%, 1.1424 24.48%, 1.1423 26.1%, 1.1366 27.86%, 1.1165 31.01%, 1.0507 38.62%, 1.0219 42.57%, 0.9995 46.99%, 0.9872 51.63%, 0.9842 58.77%, 1.0011 81.26%, 1);
+  --button-023-ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+  --button-023-ease-soft-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --button-023-ease-focus: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[data-surface="marketing"] .button-023 {
+  color: var(--button-023-color);
+  -webkit-user-select: none;
+  user-select: none;
+  background-color: #0000;
+  outline-style: none;
+  padding: 0;
+  line-height: 1;
+  text-decoration: none;
+  display: inline-grid;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  font-weight: 510;
+  letter-spacing: -0.01em;
+  transition: scale 0.15s var(--button-023-ease-click);
+}
+
+[data-surface="marketing"] .button-023::after {
+  content: '';
+  display: block;
+  position: absolute;
+  inset: var(--button-023-focus-inset);
+  border-radius: var(--button-023-border-radius);
+  transition: box-shadow 0.3s var(--button-023-ease-focus), scale 0.45s var(--button-023-ease-smooth);
+  pointer-events: none;
+  z-index: 1;
+}
+
+[data-surface="marketing"] .button-023:active {
+  scale: var(--button-023-click-scale);
+}
+
+[data-surface="marketing"] .button-023:is(:focus-visible)::after {
+  box-shadow: 0 0 0 0.125em var(--button-023-color-focus);
+  scale: var(--button-023-hover-scale);
+}
+
+[data-surface="marketing"] .button-023:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+[data-surface="marketing"] .button-023__bg {
+  pointer-events: none;
+  background-color: var(--button-023-color-background);
+  border-radius: var(--button-023-border-radius);
+  grid-area: 1 / 1;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  overflow: hidden;
+  transition: scale 0.45s var(--button-023-ease-smooth);
+}
+
+[data-surface="marketing"] .button-023__bg-inner {
+  grid-area: 1 / 1;
+  width: 120%;
+  height: 100%;
+  padding: 0;
+  transform-origin: 100% 0;
+  translate: 0 100% 0;
+  rotate: -12deg;
+  transition: translate 0.6s var(--button-023-ease-smooth), rotate 0.5s var(--button-023-ease-smooth);
+  transition-delay: calc(var(--index) * -1 * 0.042s);
+}
+
+[data-surface="marketing"] .button-023__bg-inner.is--first {
+  background-color: var(--button-023-between-color-background);
+}
+
+[data-surface="marketing"] .button-023__bg-inner.is--second {
+  background-color: var(--button-023-hover-color-background);
+  z-index: 1;
+}
+
+[data-surface="marketing"] .button-023__inner {
+  pointer-events: none;
+  z-index: 1;
+  border-radius: var(--button-023-border-radius);
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  overflow: clip;
+}
+
+[data-surface="marketing"] .button-023__text {
+  width: 100%;
+  height: 100%;
+  padding: var(--button-023-padding);
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 0.5em;
+  white-space: nowrap;
+}
+
+[data-surface="marketing"] .button-023__text.is--first {
+  transform-origin: 0 0;
+  transition: translate 0.75s var(--button-023-ease-hover), rotate 0.5s var(--button-023-ease-smooth);
+}
+
+[data-surface="marketing"] .button-023__text.is--second {
+  color: var(--button-023-hover-color);
+  translate: 5% 100% 0;
+  rotate: 1 1 0.75 -45deg;
+  transform-origin: top right;
+  transition: translate 0.75s var(--button-023-ease-hover), rotate 0.5s var(--button-023-ease-smooth);
+}
+
+/* Heights match the marketing sizes so primary still lines up with secondary. */
+[data-surface="marketing"] .button-023--sm {
+  font-size: 13px;
+  height: 2rem;
+}
+[data-surface="marketing"] .button-023--sm .button-023__text {
+  padding-inline: 0.875rem;
+}
+
+[data-surface="marketing"] .button-023--md {
+  font-size: 14px;
+  height: 2.25rem;
+}
+[data-surface="marketing"] .button-023--md .button-023__text {
+  padding-inline: 1rem;
+}
+
+[data-surface="marketing"] .button-023--lg {
+  font-size: 15px;
+  height: 2.75rem;
+}
+[data-surface="marketing"] .button-023--lg .button-023__text {
+  padding-inline: 1.25rem;
+}
+
+[data-surface="marketing"] .button-023--full {
+  width: 100%;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  [data-surface="marketing"] .button-023:is(:hover, :focus-visible) .button-023__bg,
+  [data-surface="marketing"] [data-hover]:is(:hover, :focus-visible) .button-023 .button-023__bg {
+    scale: var(--button-023-hover-scale);
+  }
+
+  [data-surface="marketing"] .button-023:is(:hover, :focus-visible) .button-023__bg-inner,
+  [data-surface="marketing"] [data-hover]:is(:hover, :focus-visible) .button-023 .button-023__bg-inner {
+    translate: 0 0 0;
+    rotate: 0deg;
+    transition-delay: calc(var(--index) * 0.068s + 0.05s);
+  }
+
+  [data-surface="marketing"] .button-023:is(:hover, :focus-visible) .button-023__text.is--first,
+  [data-surface="marketing"] [data-hover]:is(:hover, :focus-visible) .button-023 .button-023__text.is--first {
+    rotate: 1 1 0.45 -60deg;
+    translate: -5% -100% 0;
+    transition-delay: 0.075s;
+  }
+
+  [data-surface="marketing"] .button-023:is(:hover, :focus-visible) .button-023__text.is--second,
+  [data-surface="marketing"] [data-hover]:is(:hover, :focus-visible) .button-023 .button-023__text.is--second {
+    rotate: 1 1 0.45 0deg;
+    translate: 0 0 0;
+    transition-delay: 0.165s;
+  }
+}

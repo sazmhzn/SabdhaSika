@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
 import { marketingButtonClasses } from "@/components/ui/button-classes";
 import { HeroStack } from "@/components/marketing/HeroStack";
+import { PrimaryCta } from "@/components/marketing/PrimaryCta";
 import { japanese } from "@/lib/data/japanese";
 import {
   COUNTED_LANGUAGE_COUNT,
@@ -104,10 +105,12 @@ export function Hero() {
             className="animate-rise mt-9 flex flex-wrap items-center gap-3"
             style={{ animationDelay: "180ms" }}
           >
-            <Link href="/register" className={marketingButtonClasses({ size: "lg" })}>
-              Start learning
-              <ArrowRight className="size-4" strokeWidth={2} />
-            </Link>
+            <PrimaryCta
+              href="/register"
+              size="lg"
+              label="Start learning"
+              icon={<ArrowRight className="size-4" strokeWidth={2} />}
+            />
             <Link
               href="/signin"
               className={marketingButtonClasses({ variant: "secondary", size: "lg" })}

@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAccountStore } from "@/lib/account-store";
+import { PrimaryCta } from "@/components/marketing/PrimaryCta";
 import { marketingButtonClasses } from "@/components/ui/button-classes";
 import { GlyphTile } from "@/components/ui/GlyphTile";
 import { cn } from "@/lib/cn";
@@ -105,9 +106,7 @@ export function SiteNav() {
 
         <div className="flex shrink-0 items-center gap-2">
           {signedIn ? (
-            <Link href="/learn" className={marketingButtonClasses({ size: "sm" })}>
-              Open the app
-            </Link>
+            <PrimaryCta href="/learn" size="sm" label="Open the app" />
           ) : (
             <>
               <Link
@@ -120,9 +119,7 @@ export function SiteNav() {
               >
                 Sign in
               </Link>
-              <Link href="/register" className={marketingButtonClasses({ size: "sm" })}>
-                Get started
-              </Link>
+              <PrimaryCta href="/register" size="sm" label="Get started" />
             </>
           )}
 
